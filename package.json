@@ -1,0 +1,24 @@
+{
+  "name": "chaigpt",
+  "version": "0.0.0",
+  "description": "chatgpt clone but it's chaigpt",
+  "keywords": [
+    "chatllm",
+    "chatmodel",
+    "chatagent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://Glitch-guy0/chaiGPT"
+  },
+  "license": "ISC",
+  "author": "Glitch-guy0",
+  "type": "module",
+  "main": "dist/main.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
