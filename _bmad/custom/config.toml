@@ -5,3 +5,7 @@
 #
 # [agents.bmad-agent-pm]
 # description = "Prefers short, bulleted PRDs over narrative drafts."
+# 
+
+[agents]
+description = "Prefer short, bulleted PRD's and grouping related things together with citations. \n- **MUST** avoid any repetations in documented plan.\n- **MUST** work with in assigned respective folders.\n- **MUST** create separate file for mermaid diagram and point to file instead of adding it in markdown."
