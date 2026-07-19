@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const { getDatabase } = await import("@/lib/db")
     const { Conversation } = await import("@/lib/db/entities/conversation.entity")
     const { Message } = await import("@/lib/db/entities/message.entity")
-    const { langChainService } = await import("@/lib/ai/langchain")
+    const { aiProvider } = await import("@/lib/ai/langchain")
     const { ChatRequestSchema } = await import("@/lib/validation/schemas")
 
     await getDatabase()
@@ -67,7 +67,9 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const assistantContent = await langChainService.complete(langchainMessages)
+          const assistantContent = await aiProvider.complete(
+            langchainMessages as import("@/lib/validation/schemas").Message[]
+          )
 
           const assistantMessage = messageRepo.create({
             conversationId: conversation!.id,
