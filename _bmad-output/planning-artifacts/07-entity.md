@@ -55,7 +55,7 @@ erDiagram
     }
     USER ||--o{ CONVERSATION : owns
     CONVERSATION ||--o{ MESSAGE : contains
-    MESSAGE ||--o{ MESSAGE : "parent of (branch)"
+    MESSAGE ||--o{ MESSAGE : "parent of - branch"
     CONVERSATION ||--o{ ASSET : references
     MESSAGE ||--o{ ASSET : "embeds into vector"
     ASSET ||--o{ VECTOR_RECORD : chunked_into
@@ -104,7 +104,7 @@ classDiagram
     }
     Conversation "1" *-- "0..*" Message : contains
     Conversation "1" *-- "0..*" Asset : references
-    Message "0..1" *-- "0..*" Message : "parent of (branch)"
+    Message "0..1" *-- "0..*" Message : "parent of - branch"
 ```
 
 ## schema/ partition (entity / cache / vector)

@@ -6,13 +6,13 @@ Root-cause / concern analysis grouped by category. Each bone is a partition; eff
 flowchart LR
     EFF["Effect: Coupled but simple; scale via external stores"]
 
-    B1["Routes & Auth<br/>(app router, middleware, Clerk)"]
-    B2["Services<br/>(use-case logic)"]
-    B3["Data / TypeORM<br/>(entities, repositories, migrations)"]
-    B4["Integrations<br/>(LangChain, Qdrant, Redis, Jina)"]
-    B5["Shared<br/>(types, utils, validation)"]
-    B6["Persistence Schema<br/>(entity SQL, cache KV, vector)"]
-    B7["Testing<br/>(Vitest unit + Playwright e2e, FR-29..FR-34)"]
+    B1["Routes & Auth \(app router, middleware, Clerk\)"]
+    B2["Services \(use-case logic\)"]
+    B3["Data / TypeORM \(entities, repositories, migrations\)"]
+    B4["Integrations \(LangChain, Qdrant, Redis, Jina\)"]
+    B5["Shared \(types, utils, validation\)"]
+    B6["Persistence Schema \(entity SQL, cache KV, vector\)"]
+    B7["Testing \(Vitest unit + Playwright e2e, FR-29..FR-34\)"]
 
     B1 -->|app router, middleware, Clerk| EFF
     B2 -->|use-case logic| EFF

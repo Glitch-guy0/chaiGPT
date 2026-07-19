@@ -5,16 +5,16 @@ Snapshots of live objects during a chat request, showing concrete instances wire
 ```mermaid
 flowchart TD
     subgraph req["Chat POST request"]
-        cr["ChatRequest{<br/>messages: [user:'hi'],<br/>conversationId: 'c1'}"]
+        cr["ChatRequest{ messages: [user:'hi'], conversationId: 'c1'}"]
     end
 
     subgraph svc["Runtime wiring"]
         chatSvc["ChatService instance"]
-        convRepo["TypeOrmConversationRepository<br/>(ds=AppDataSource)"]
-        msgRepo["TypeOrmMessageRepository<br/>(ds=AppDataSource)"]
-        aiProv["AiProvider<br/>(LangChain extension over OpenAI ChatOpenAI)"]
-        jinaProv["JinaProvider<br/>(apiKey: JINA_API_KEY)"]
-        wsTool["WebSearchTool<br/>(registered on AiProvider/agent)"]
+        convRepo["TypeOrmConversationRepository \(ds=AppDataSource\)"]
+        msgRepo["TypeOrmMessageRepository \(ds=AppDataSource\)"]
+        aiProv["AiProvider \(LangChain extension over OpenAI ChatOpenAI\)"]
+        jinaProv["JinaProvider \(apiKey: JINA_API_KEY\)"]
+        wsTool["WebSearchTool \(registered on AiProvider/agent\)"]
     end
 
     subgraph data["Live entities"]

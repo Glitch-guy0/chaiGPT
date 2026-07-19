@@ -137,6 +137,22 @@ NFR-10 Web search latency overhead (Jina query round-trip) — < 1.5 s (p95).
 | FR-33 | E2, E6 |
 | FR-34 | E2 |
 
+### NFR Coverage Map
+
+| NFR | Epic |
+|----|------|
+| NFR-1 | E2 |
+| NFR-2 | E1, E5 |
+| NFR-3 | E2 |
+| NFR-4 | E5 |
+| NFR-5 | E3 |
+| NFR-6 | E2 |
+| NFR-7 | E2 |
+| NFR-8 | E2 |
+| NFR-9 | E2 |
+| NFR-10 | E7 |
+| NFR-11 | E5 |
+
 ## Epic List
 
 - E1: Types & Contracts (all type/interface/schema definitions first)
@@ -250,6 +266,8 @@ So that I can bring up and tear down consistent dev/prod environments.
 **And** `npm run stop:dev:infra` stops the containers and deletes the volume only if it was explicitly provided
 
 **And** equivalent `start:prod`/`stop:prod` scripts build and run the full production stack
+
+**And** externalized stores (Postgres + Qdrant) satisfy horizontal-scale and reversible-migration requirements (NFR-2, NFR-6; brief Infra).
 
 ### Story 2.2: Postgres DataSource & Reversible Migrations
 
@@ -391,8 +409,6 @@ So that I get fast feedback and a persisted record.
 
 **And** on explicit termination the assistant message content is `"user terminated the response"` with `status: stopped` (FR-6)
 
-**And** web-sourced context (Jina, FR-26) is an additional retrieval source injected before completion alongside Qdrant RAG (FR-15)
-
 **And** time-to-first-token is < 1 s (NFR-5)
 
 ### Story 3.4: AiProvider Concrete Module (Streaming)
@@ -409,8 +425,6 @@ So that I can swap the model without rewriting services.
 
 **And** the default model is `gpt-4o-mini` and can be swapped by changing only this module, not the services (FR-22)
 
-**And** the agent registers the `WebSearchTool` (FR-27, FR-28) so the model can invoke live web search; tool calls route to `WebSearchProvider` (FR-24)
-
 ### Story 3.5: Message Editing (Edit-Latest, In-Place)
 
 As a user,
@@ -423,7 +437,7 @@ So that I can correct a typo without creating a branch.
 **When** `MessageService.editLatest(userId, convId, content)` runs
 **Then** only that message and its trailing assistant reply are updated content-only with the same IDs (FR-11)
 
-**And** branching is unaffected and `lastMessageId` is unchanged (FR-10, FR-11, KI-2)
+**And** branching is unaffected and `lastMessageId` is unchanged (FR-10, FR-11)
 
 **And** only the latest user message is editable; earlier messages are disabled (brief #7)
 
@@ -439,7 +453,7 @@ So that I can get a fresh completion without making a branch.
 **When** `ChatService.regenerate(messageId, userId)` runs
 **Then** the same message ID is set to `processing`, re-streamed via SSE, and overwritten with `status: complete` (FR-18)
 
-**And** no new sibling/branch is created (FR-18, KI-1)
+**And** no new sibling/branch is created (FR-18)
 
 ### Story 3.7: 500-Char Limit & Large-Paste-to-TXT
 
@@ -485,7 +499,7 @@ So that branching continues from my latest message.
 **When** the user edits
 **Then** only the most recently created sibling is updated (FR-10)
 
-**And** further conversation continues from that sibling; retries on an already-branched message are ignored (FR-10, KI-1)
+**And** further conversation continues from that sibling; retries on an already-branched message are ignored (FR-10, FR-18)
 
 ### Story 4.3: Regenerate Within a Branch
 

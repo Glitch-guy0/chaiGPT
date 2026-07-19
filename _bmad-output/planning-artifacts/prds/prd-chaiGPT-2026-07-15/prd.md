@@ -118,12 +118,17 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 - **FR-33 [Must]** E2E scope covers the critical user journeys: **auth-gated flows** (sign-in / protected redirects), **branching**, **asset upload**, **RAG answers**, and **web search**.
 - **FR-34 [Should]** E2E tests run against a **Docker Compose stack (Postgres + Qdrant)** to exercise real persistence and vector retrieval; a smoke subset (auth, branch, asset, RAG, search) gates CI.
 
+> v1 scope uses Must/Should only; Could-priority items are deferred to v2.
+
+### 6.12 Additional Requirements
+- npm lifecycle scripts (start:dev, start:dev:infra, stop:dev:infra, start:prod, stop:prod) reproduce the full stack (Postgres + Qdrant + app) — fulfills US-11 and brief Infra.
+
 ## 7. Non-Functional Requirements
 
 | ID | Requirement | Target |
 |----|-------------|--------|
-| NFR-1 | SOLID / single-responsibility per layer | Inspection |
-| NFR-2 | Horizontal scale — stateless route handlers, externalized stores (Postgres/Qdrant/Redis) | Analysis |
+| NFR-1 | SOLID / single-responsibility per layer | No business logic in route handlers; I/O delegated to services (inspection) |
+| NFR-2 | Horizontal scale — stateless route handlers, externalized stores (Postgres/Qdrant/Redis) | Route handlers stateless; all state externalized to Postgres/Qdrant/Redis (analysis) |
 | NFR-3 | Auth latency overhead | < 50 ms per request (p95) |
 | NFR-4 | RAG retrieval latency | < 300 ms (p95) for top-3 |
 | NFR-5 | Streaming time-to-first-token | < 1 s |
@@ -132,6 +137,7 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 | NFR-8 | Unit tests deterministic & offline (externals mocked: OpenAI, Qdrant, Jina, Clerk) via Vitest | Required for CI |
 | NFR-9 | E2E smoke suite (Playwright) green against Docker Compose (Postgres + Qdrant) | Required gate in CI |
 | NFR-10 | Web search latency overhead (Jina query round-trip) | < 1.5 s (p95) |
+| NFR-11 | RAG retrieval relevance (top-3) on designated eval set | ≥ 90% |
 
 ## 8. Architecture Alignment (from UML artifacts)
 
@@ -152,7 +158,7 @@ The UML still carries the old hexagonal port/adapter wording and must be simplif
 5. Postgres via TypeORM migrations from SQLite (brief decision #1).
 6. Clerk auth via Next.js middleware + `auth()` in route handlers (no separate `IGuard` port).
 
-> **Decision needed:** update `01-package.md`, `02-class.md`, `05-architecture.md`, `07-entity.md`, `03-sequence.md` to reflect the integrated Next.js + TypeORM model (drop `I*Interface` ports, `adapters/`, `plugins/`).
+> **Resolved:** UML artifacts (01/02/03/05/07/08/09) updated to the tightly-integrated Next.js + TypeORM model; ports/adapters/plugins dropped. See prd-validation-report.md (B1 resolved).
 
 ## 9. Data Model (v2 — supersedes current entities)
 

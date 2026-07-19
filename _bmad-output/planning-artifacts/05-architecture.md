@@ -5,35 +5,35 @@ Tightly integrated with Next.js (App Router, route handlers, middleware) and Typ
 ```mermaid
 flowchart TB
     subgraph client["Client (Browser)"]
-        ui["React UI + hooks<br/>(useChat, useConversations)"]
+        ui["React UI + hooks \(useChat, useConversations\)"]
     end
 
     subgraph routes["Next.js App Router (src/app)"]
-        ctrl["Route handlers<br/>chat / conversations / assets"]
-        mw["middleware.ts<br/>(Clerk session)"]
+        ctrl["Route handlers chat / conversations / assets"]
+        mw["middleware.ts \(Clerk session\)"]
     end
 
     subgraph services["Services (src/services)"]
-        svc["ChatService · ConversationService<br/>MessageService · AssetService"]
+        svc["ChatService · ConversationService MessageService · AssetService"]
     end
 
     subgraph data["Data — TypeORM (src/lib/db)"]
-        ent["Entities<br/>Conversation · Message · Asset"]
-        repo["Repositories<br/>Conversation/Message/Asset"]
+        ent["Entities Conversation · Message · Asset"]
+        repo["Repositories Conversation/Message/Asset"]
         ds["DataSource (Postgres)"]
     end
 
     subgraph integ["Integrations (src/lib)"]
-        ai["ai/langchain.ts<br/>(ChatOpenAI, stream)"]
-        vec["vector/qdrant.ts<br/>(@langchain/qdrant)"]
-        ws["websearch/jina.ts + webSearchTool.ts<br/>(Jina AI + LangChain tool, FR-24..FR-28)"]
-        cache["cache/redis.ts<br/>(Redis KV)"]
-        auth["auth/session.ts<br/>(Clerk auth())"]
+        ai["ai/langchain.ts \(ChatOpenAI, stream\)"]
+        vec["vector/qdrant.ts \(@langchain/qdrant\)"]
+        ws["websearch/jina.ts + webSearchTool.ts \(Jina AI + LangChain tool, FR-24..FR-28\)"]
+        cache["cache/redis.ts \(Redis KV\)"]
+        auth["auth/session.ts \(Clerk auth\(\)\)"]
     end
 
     subgraph test["Testing (cross-cutting)"]
-        vitest["Vitest unit tests<br/>(mocked externals, ≥80% coverage, FR-29..FR-31)"]
-        playwright["Playwright e2e<br/>(Docker Compose, smoke gating CI, FR-32..FR-34)"]
+        vitest["Vitest unit tests \(mocked externals, ≥80% coverage, FR-29..FR-31\)"]
+        playwright["Playwright e2e \(Docker Compose, smoke gating CI, FR-32..FR-34\)"]
     end
 
     subgraph persist["schema/ (Persistence Contracts)"]

@@ -3,6 +3,7 @@ title: chaiGPT Implementation Readiness — Issues Log
 status: resolved
 created: 2026-07-19
 updated: 2026-07-19
+rerun: 2026-07-19 (post web-search + testing PRD update)
 source_assessment: bmad-check-implementation-readiness
 artifacts_reviewed:
   - prds/prd-chaiGPT-2026-07-15/prd.md
@@ -105,6 +106,46 @@ No whole-vs-sharded duplicates. PRD/Arch/Epics each a single whole document.
 - **Impact:** None blocking; integration must be coordinated when E3 and E5 land.
 - **Resolution:** ✅ ACCEPTED (no change) — Correct traceability; FR-15 is the E3↔E5 integration seam. No new story needed.
 
+#### ISSUE-UM-1 — Unescaped parentheses in quoted Mermaid labels (07-entity.md)
+- **Where:** `07-entity.md` lines 58 & 107 (erDiagram + classDiagram relationship labels `"parent of (branch)"`)
+- **Detail:** Mermaid reserves `(`/`)` for node-shape syntax; unescaped parens inside a quoted label break the parser. Major render-blocking.
+- **Resolution:** ✅ RESOLVED — Changed both labels to `"parent of - branch"` (parens removed).
+
+#### ISSUE-UM-2 — `<br/>` + unescaped parens in 05/08/09 diagram labels
+- **Where:** `05-architecture.md` (13 labels), `08-object.md` (4 labels), `09-component-ishikawa.md` (7 labels)
+- **Detail:** `<br/>` inside labels is unreliable and unescaped parens break render. Minor (non-blocking but should fix).
+- **Resolution:** ✅ RESOLVED — Removed `<br/>` (replaced with space/comma) and escaped remaining parens with backslash across all three files. 01/02/03/04 left untouched (already clean).
+
+#### ISSUE-PRD-1 — Stale §8.1 "Decision needed" contradicts resolved §13
+- **Where:** `prd.md` §8.1 vs §13
+- **Detail:** §8.1 still carried an open `> **Decision needed:** update UML...` callout while §13 + validation report state UML is updated. Internal contradiction.
+- **Resolution:** ✅ RESOLVED — Replaced callout with `> **Resolved:** UML artifacts (01/02/03/05/07/08/09) updated to integrated model; see prd-validation-report.md (B1 resolved).`
+
+#### ISSUE-PRD-2 — Minor PRD clarifications (US-11 traceability, NFR-1/2 targets, MoSCoW note, NFR-11)
+- **Where:** `prd.md` §5/§6/§7/§10
+- **Detail:** US-11 (npm scripts) had no FR; NFR-1/2 targets were qualitative ("Inspection"/"Analysis"); no Could-priority note; RAG ≥90% relevance metric had no backing NFR.
+- **Resolution:** ✅ RESOLVED — Added §6.12 Additional Requirements (npm scripts → US-11); made NFR-1/2 targets verifiable; added v1 Must/Should-only note; added NFR-11 (RAG ≥90% top-3 relevance) backing §10.
+
+#### ISSUE-EP-1 — E3 forward-depends on E7 (web search ACs in E3)
+- **Where:** `epics.md` Story 3.3 (Jina context) & Story 3.4 (WebSearchTool registration)
+- **Detail:** E3 (Conversation Core) carried acceptance criteria depending on Epic 7 (Web Search) which executes later — violates forward-only dependency rule.
+- **Resolution:** ✅ RESOLVED — Removed web-context line from 3.3 and WebSearchTool line from 3.4; those belong to E7.3 / E7.2 respectively.
+
+#### ISSUE-EP-2 — Undefined KI-1 / KI-2 IDs in acceptance criteria
+- **Where:** `epics.md` Story 3.5, 3.6, 4.2
+- **Detail:** ACs cited `KI-1`/`KI-2` which are not in the requirements inventory (only in PRD Known Issues §14). Broken traceability.
+- **Resolution:** ✅ RESOLVED — Replaced `KI-1` → `FR-18`, `KI-2` → `FR-10, FR-11` across the three stories.
+
+#### ISSUE-EP-3 — Missing NFR Coverage Map + Story 2.1 traceability
+- **Where:** `epics.md` (after FR Coverage Map) & Story 2.1
+- **Detail:** No NFR→Epic map (only FR map); Story 2.1 AC cited no FR/NFR.
+- **Resolution:** ✅ RESOLVED — Added `### NFR Coverage Map` (NFR-1..NFR-11 → epics); added NFR-2/NFR-6 traceability line to Story 2.1 AC.
+
+#### ISSUE-UX-2 — Web-source citation rendering UX undefined (scaffold-stage)
+- **Where:** `ux-designs/.../EXPERIENCE.md` Key Journeys (lines 48-52)
+- **Detail:** No journey/UX-DR specifies how Jina web-source citations render in the streaming view (backend captures URLs via E7.3/FR-26; E6.3 mentions citations). Acceptable at scaffold stage.
+- **Resolution:** ✅ ACCEPTED (no change now) — Will be defined when the bmad-ux spine (DESIGN/EXPERIENCE) is populated. Tracked as follow-up before E6.
+
 ---
 
 ## 3. FR / NFR Coverage Matrix (validation result)
@@ -134,6 +175,17 @@ No whole-vs-sharded duplicates. PRD/Arch/Epics each a single whole document.
 | FR-21 | layered integrated arch | E1/E2/E3 | 1.2, 1.4, 2.4, 3.x | ✅ |
 | FR-22 | AiProvider thin module | E1/E3 | 1.3, 3.4 | ✅ |
 | FR-23 | middleware cross-cutting | E1/E2 | 1.3, 2.3 | ✅ |
+| FR-24 | Jina web-search client | E1/E7 | 1.3, 7.1 | ✅ |
+| FR-25 | JINA_API_KEY env | E2/E7 | 2.3, 7.1 | ✅ |
+| FR-26 | Jina as RAG supplement | E3/E7 | 3.3, 7.3 | ✅ |
+| FR-27 | LangChain web-search tool | E1/E7 | 1.3, 7.2 | ✅ |
+| FR-28 | Tool Zod schema | E3/E7 | 3.4, 7.2 | ✅ |
+| FR-29 | Vitest unit tests | E2 | 2.5 | ✅ |
+| FR-30 | Mocked externals | E2 | 2.5 | ✅ |
+| FR-31 | ≥80% coverage gate | E2 | 2.5 | ✅ |
+| FR-32 | Playwright e2e | E2 | 2.6 | ✅ |
+| FR-33 | E2E scope (auth/branch/asset/RAG/search) | E2/E6 | 2.6, 6.3 | ✅ |
+| FR-34 | E2E Docker Compose stack | E2 | 2.6 | ✅ |
 | NFR-1 | SOLID per layer | E2 | 2.4 | ✅ |
 | NFR-2 | horizontal scale / externalized | E1/E5 | 1.3, 5.4 | ✅ |
 | NFR-3 | auth <50ms p95 | E2 | 2.3 | ✅ |
@@ -141,8 +193,12 @@ No whole-vs-sharded duplicates. PRD/Arch/Epics each a single whole document.
 | NFR-5 | TTFT <1s | E3 | 3.3 | ✅ |
 | NFR-6 | reversible migrations | E2 | 2.2 | ✅ |
 | NFR-7 | ≥80% coverage | E2 | 2.5 | ✅ |
+| NFR-8 | unit tests deterministic (mocked) | E2 | 2.5 | ✅ |
+| NFR-9 | E2E green in CI | E2 | 2.6 | ✅ |
+| NFR-10 | web search latency <1.5s | E7 | 7.1 | ✅ |
+| NFR-11 | RAG relevance ≥90% top-3 | E5 | 5.3 | ✅ |
 
-**Coverage: 23/23 FR covered, 7/7 NFR covered.**
+**Coverage: 34/34 FR covered, 11/11 NFR covered.**
 
 ---
 
@@ -178,17 +234,25 @@ No whole-vs-sharded duplicates. PRD/Arch/Epics each a single whole document.
 
 ## 6. Summary & Recommended Actions
 
-**Overall readiness: READY** — all 3 Major issues and all Minor issues resolved. Coverage is 23/23 FR and 7/7 NFR. Artifacts updated: `08-object.md`, `04-requirements.md`, `epics.md` (E2.5 + E2 legacy-backend note), and a new bmad-ux contract scaffold.
+**Overall readiness: READY** — all Major and Minor issues resolved across PRD, UML, epics, and UX. Coverage is **34/34 FR** and **11/11 NFR**. Artifacts updated: `08-object.md` (AiProvider canonical), `04-requirements.md` (REQ↔FR), `07-entity.md` (Mermaid parens), `05/08/09-*.md` (Mermaid labels), `prd.md` (§8.1 resolved, §6.12/§7 NFR-1/2/11, §6 MoSCoW note), `epics.md` (E2.5/2.6 testing, E3 cleaned of E7 deps, KI refs fixed, NFR Coverage Map, E2.1 traceability), plus new bmad-ux spine and Epic 7 (Web Search).
 
 | Issue | Severity | Resolution |
 |-------|----------|------------|
 | ISSUE-DOC-1 | Major | ✅ `08-object.md` rewritten — `AiProvider` = LangChain extension over OpenAI `ChatOpenAI` |
 | ISSUE-DOC-2 | Major | ✅ `04-requirements.md` rewritten — REQ↔FR (FR-1..FR-23), integrated-model wording |
 | ISSUE-COV-1 | Major | ✅ Added `epics.md` E2.5 "Testing foundation" (Vitest + ≥80% CI gate) |
+| ISSUE-UM-1 | Major | ✅ `07-entity.md` parens removed from quoted labels |
+| ISSUE-EP-1 | Major | ✅ E3.3/3.4 web-search ACs removed (forward-dep fixed) |
 | ISSUE-STR-1 | Minor | ✅ ACCEPTED (contract-first, user-approved) |
 | ISSUE-STR-2 | Minor | ✅ ACCEPTED (ordering sound; optional clarification) |
 | ISSUE-STR-3 | Minor | ✅ Scaffold skipped; legacy backend replaced per E2 note |
 | ISSUE-UX-1 | Minor | ✅ bmad-ux `DESIGN.md`/`EXPERIENCE.md` scaffold created (to be populated) |
 | ISSUE-COV-2 | Minor | ✅ ACCEPTED (FR-15 = E3↔E5 seam, no new story) |
+| ISSUE-UM-2 | Minor | ✅ `05/08/09-*.md` `<br/>` removed, parens escaped |
+| ISSUE-PRD-1 | Minor | ✅ `prd.md` §8.1 stale callout replaced with resolved note |
+| ISSUE-PRD-2 | Minor | ✅ US-11 traceability, NFR-1/2 targets, MoSCoW note, NFR-11 added |
+| ISSUE-EP-2 | Minor | ✅ KI-1→FR-18, KI-2→FR-10/11 across E3.5/3.6/E4.2 |
+| ISSUE-EP-3 | Minor | ✅ NFR Coverage Map added; E2.1 traceability added |
+| ISSUE-UX-2 | Minor | ✅ ACCEPTED (web citation rendering to be defined in UX population) |
 
-**Follow-up (not blocking):** Populate the bmad-ux `DESIGN.md`/`EXPERIENCE.md` from UX-DR1..UX-DR8 before E6 implementation.
+**Follow-up (not blocking):** Populate the bmad-ux `DESIGN.md`/`EXPERIENCE.md` from UX-DR1..UX-DR8 before E6 implementation. Define web-source citation rendering journey.
