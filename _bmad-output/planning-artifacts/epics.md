@@ -197,6 +197,8 @@ So that every inbound request is validated against a single contract.
 
 Stand up the runnable foundation that the contract layer from E1 binds to: Dockerized Postgres + Qdrant with a named volume and npm lifecycle scripts, the Postgres DataSource + reversible migrations, Clerk authentication via Next.js middleware + `auth()`, and the layered package skeleton. Delivers G1 (authenticated, account-scoped) and the substrate every logic epic builds on.
 
+**Existing repo note:** The Next.js 16 App Router skeleton already exists, so no scaffold story is required. The existing backend (SQLite/TypeORM `Conversation`/`Message`, flat LangChain streaming, no auth/branching/assets/RAG) is NOT reused — only the existing UI shell is retained. Build the plan directly on the repo, removing or replacing the legacy backend code (SQLite entities, old route handlers,旧 integrations) rather than carrying it forward.
+
 ### Story 2.1: Dockerized Infra & Lifecycle Scripts
 
 As a Platform Engineer,
@@ -258,6 +260,24 @@ So that all features follow the approved concern-separated architecture.
 **Then** the structure matches `01-package.md`: `app/`, `services/`, `lib/db`, `lib/ai`, `lib/vector`, `lib/cache`, `lib/auth`, `lib/validation`, `types/`, and `schema/` (FR-21)
 
 **And** dependency direction is `app -> services -> {repositories | ai | vector | cache}` with no port/adapter layer (NFR-1)
+
+### Story 2.5: Testing Foundation (Vitest + ≥80% Coverage Gate)
+
+As a Maintainer,
+I want a test harness with repository and service fixtures and a coverage gate,
+So that NFR-7 (≥80% coverage of services + repositories) is enforced in CI.
+
+**Acceptance Criteria:**
+
+**Given** the project root after E2.1–E2.4 are in place
+**When** the test foundation is set up
+**Then** Vitest is configured with a coverage reporter for `src/services` and `src/lib/db/repositories`
+
+**And** seedable test fixtures exist for `ConversationRepository`, `MessageRepository`, and `AssetRepository` against a disposable Postgres (or in-memory TypeORM) instance
+
+**And** a CI step fails the build if service + repository coverage is below 80% (NFR-7)
+
+**And** at least one representative test exists per repository and per service introduced in E3/E4/E5 as those epics land
 
 ## Epic 3: Conversation & Message Core (Services, Streaming, Editing)
 

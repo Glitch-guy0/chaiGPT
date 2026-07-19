@@ -1,6 +1,6 @@
 # Object Diagram — chaiGPT Runtime Instances
 
-Snapshots of live objects during a chat request, showing concrete adapter instances wired to services (dependency injection at runtime).
+Snapshots of live objects during a chat request, showing concrete instances wired to services (dependency injection at runtime). The `AiProvider` is a LangChain extension wrapping the OpenAI provider (`ChatOpenAI`); there is no separate strategy/port layer.
 
 ```mermaid
 flowchart TD
@@ -12,8 +12,7 @@ flowchart TD
         chatSvc["ChatService instance"]
         convRepo["TypeOrmConversationRepository<br/>(ds=AppDataSource)"]
         msgRepo["TypeOrmMessageRepository<br/>(ds=AppDataSource)"]
-        aiProv["LangChainAiProvider<br/>(chat=ChatOpenAI gpt-4o-mini)"]
-        strat["Gpt4oMiniStrategy"]
+        aiProv["AiProvider<br/>(LangChain extension over OpenAI ChatOpenAI)"]
     end
 
     subgraph data["Live entities"]
@@ -27,7 +26,6 @@ flowchart TD
     chatSvc --> convRepo
     chatSvc --> msgRepo
     chatSvc --> aiProv
-    aiProv --> strat
     convRepo --> conv
     msgRepo --> m1
     msgRepo --> m2
