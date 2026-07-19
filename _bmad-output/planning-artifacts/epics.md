@@ -11,6 +11,8 @@ inputDocuments:
   - 07-entity.md
   - 08-object.md
   - 09-component-ishikawa.md
+  - ux-designs/ux-chaiGPT-2026-07-19/DESIGN.md
+  - ux-designs/ux-chaiGPT-2026-07-19/EXPERIENCE.md
 ---
 
 # chaiGPT - Epic Breakdown
