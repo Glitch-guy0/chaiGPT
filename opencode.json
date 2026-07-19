@@ -1,0 +1,14 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "mcp": {
+    "context-engine": {
+      "type": "local",
+      "command": [
+        "/Users/prajwal/.local/bin/cce",
+        "serve",
+        "--project-dir",
+        "/Users/prajwal/Documents/learning/chaiGPT"
+      ]
+    }
+  }
+}
