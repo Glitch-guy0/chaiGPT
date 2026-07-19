@@ -175,3 +175,77 @@ sequenceDiagram
     end
     S->>AI: complete(enrichedMessages)
 ```
+
+## 7) Web Search via LangChain Tool (FR-24..FR-28)
+
+The model decides to invoke the web-search tool during completion. `WebSearchTool` calls `JinaProvider.search(query)`, normalizes results as `WebResult[]`, and injects them into the prompt as additional context alongside Qdrant RAG. Source URLs are included for citation.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant C as ChatRoute (route.ts)
+    participant AUTH as Clerk middleware / auth()
+    participant S as ChatService
+    participant VEC as QdrantStore
+    participant AI as AiProvider (LangChain agent)
+    participant TOOL as WebSearchTool
+    participant JINA as JinaProvider
+    participant JINA_API as Jina AI API
+
+    User->>C: POST /api/chat (ChatRequest)
+    C->>AUTH: auth() -> userId
+    AUTH-->>C: userId
+    C->>S: send(req, userId)
+    S->>S: build messages + RAG context
+    S->>VEC: search(embed(lastUser), conversationId, k=3)
+    VEC-->>S: Hit[] (RAG context)
+
+    S->>AI: streamChat(messages + RAG context)
+    AI->>AI: model decides to invoke web_search tool
+    AI->>TOOL: run(query)
+    TOOL->>JINA: search(query)
+    JINA->>JINA_API: POST /search (JINA_API_KEY)
+    JINA_API-->>JINA: { title, url, snippet }[]
+    JINA-->>TOOL: WebResult[]
+    TOOL-->>AI: formatted context string + source URLs
+    AI->>S: streamChat continues with web context
+    loop for each token (chunk)
+        AI-->>S: token (chunk)
+        S->>S: append token to local streamBuffer
+        S-->>C: SSE data: {chunk}
+        C-->>User: text/event-stream (token)
+    end
+    AI-->>S: stream done
+    S->>MR: append(assistant, fullContent=streamBuffer, status:complete)
+    S-->>C: SSE data: [DONE]
+    C-->>User: text/event-stream (end)
+```
+
+> **Web search context:** `WebSearchTool` is registered with the LangChain agent (distinct from the RAG retrieval path). Results are ephemeral — only source URLs are cited in the assistant message; no web results are persisted. `JINA_API_KEY` is read from env; missing key fails closed (FR-25).
+
+## 8) CI Test Pipeline (FR-29..FR-34)
+
+```mermaid
+sequenceDiagram
+    participant CI as CI (GitHub Actions)
+    participant VT as Vitest (unit)
+    participant DOCKER as Docker Compose
+    participant PG as Postgres
+    participant QD as Qdrant
+    participant PW as Playwright (e2e)
+
+    CI->>VT: vitest run --coverage
+    VT->>VT: unit tests (mocked externals: OpenAI, Qdrant, Jina, Clerk)
+    VT-->>CI: pass/fail + coverage %
+    alt coverage < 80%
+        CI-->>CI: FAIL (coverage gate)
+    end
+
+    CI->>DOCKER: docker compose up (Postgres + Qdrant)
+    DOCKER->>PG: Postgres ready
+    DOCKER->>QD: Qdrant ready
+    CI->>PW: npx playwright test
+    PW->>DOCKER: smoke e2e (chat, conversations, assets, web search)
+    PW-->>CI: pass/fail
+    CI->>DOCKER: docker compose down
+```

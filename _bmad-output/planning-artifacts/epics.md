@@ -46,6 +46,17 @@ FR-20 [Must] Inbound requests validated with Zod (`ChatRequestSchema`, `Conversa
 FR-21 [Must] Tightly integrated layered architecture: Next.js App Router route handlers are the entry point; services hold use-case logic; TypeORM entities + repositories own persistence (Postgres). No framework-decoupling abstraction layer is required — coupling to Next.js and TypeORM is approved.
 FR-22 [Should] AI provider kept behind a thin `AiProvider` module (LangChain) so the model can be swapped without rewriting services; not a hard port boundary.
 FR-23 [Should] Cross-cutting concerns (Clerk auth, logging) handled by Next.js middleware / route-handler helpers rather than a separate interceptor framework.
+FR-24 [Should] Integrate a Jina web-search client (Jina AI Search/Reader API) as a thin module (`JinaProvider`/`WebSearchProvider`) that issues live web queries and normalizes results (title, URL, snippet/content).
+FR-25 [Must] Jina API configured via `JINA_API_KEY` env var; key never hard-coded; fails closed with clear error when missing.
+FR-26 [Should] Jina web results available as an additional context source in retrieval, alongside Qdrant RAG. Web-sourced context injected into prompt before completion (consistent with FR-15); each result carries source URL for citation. Supplements, does not replace, per-conversation RAG (FR-14).
+FR-27 [Must] Expose web search as a LangChain tool the LLM can invoke, so the model decides when a live web lookup is warranted. Distinct from RAG over uploaded docs (FR-14).
+FR-28 [Should] Tool defined with typed schema (name, description, Zod-validated input args) registered with AiProvider/agent; tool-calls routed to Jina client (FR-24); results + source URLs captured for citation/observability.
+FR-29 [Must] Unit tests use Vitest, colocated with code under test (services + repositories), e.g. `*.test.ts` next to each.
+FR-30 [Must] External deps mocked in unit tests — OpenAI/LangChain, Qdrant, Jina, Clerk — so unit tests run offline/deterministically, no network.
+FR-31 [Must] Coverage gate enforces ≥80% coverage of services + repositories (ties to NFR-7); fails below threshold; enforced in CI.
+FR-32 [Must] E2E tests use Playwright (best fit for Next.js 16 App Router — Clerk-auth flows, streaming SSE UI).
+FR-33 [Must] E2E scope covers auth-gated flows, branching, asset upload, RAG answers, and web search.
+FR-34 [Should] E2E runs against Docker Compose stack (Postgres + Qdrant) to exercise real persistence + vector retrieval; a smoke subset (auth, branch, asset, RAG, search) gates CI.
 
 ### NonFunctional Requirements
 
@@ -56,6 +67,9 @@ NFR-4 RAG retrieval latency — < 300 ms (p95) for top-3.
 NFR-5 Streaming time-to-first-token — < 1 s.
 NFR-6 DB migrations are reversible (TypeORM) — Required for prod.
 NFR-7 Test coverage of services + repositories — >= 80%.
+NFR-8 Unit tests deterministic & offline (externals mocked: OpenAI, Qdrant, Jina, Clerk) via Vitest — Required for CI.
+NFR-9 E2E smoke suite (Playwright) green against Docker Compose (Postgres + Qdrant) — Required gate in CI.
+NFR-10 Web search latency overhead (Jina query round-trip) — < 1.5 s (p95).
 
 ### Additional Requirements
 
@@ -109,6 +123,17 @@ NFR-7 Test coverage of services + repositories — >= 80%.
 | FR-21 | E1, E2, E3 |
 | FR-22 | E1, E3 |
 | FR-23 | E1, E2 |
+| FR-24 | E1, E7 |
+| FR-25 | E2, E7 |
+| FR-26 | E3, E7 |
+| FR-27 | E1, E7 |
+| FR-28 | E3, E7 |
+| FR-29 | E2 |
+| FR-30 | E2 |
+| FR-31 | E2 |
+| FR-32 | E2 |
+| FR-33 | E2, E6 |
+| FR-34 | E2 |
 
 ## Epic List
 
@@ -118,6 +143,7 @@ NFR-7 Test coverage of services + repositories — >= 80%.
 - E4: Branching
 - E5: Assets & RAG
 - E6: UI Integration & Branch-Aware Experiences
+- E7: Web Search (Jina API + LangChain Tool)
 
 <!-- Epics defined below -->
 
@@ -177,6 +203,10 @@ So that services depend on interfaces, not concrete providers.
 
 **And** `auth` declares `session()` returning `userId` (FR-1, FR-23)
 
+**And** `WebSearchProvider` declares `search(query)` returning normalized results `{title, url, snippet}` (FR-24)
+
+**And** `WebSearchTool` declares `run(query)` (Zod schema) routed to `WebSearchProvider` (FR-27, FR-28)
+
 ### Story 1.4: Zod Validation Schemas & Shared App Types
 
 As a Maintainer,
@@ -192,6 +222,8 @@ So that every inbound request is validated against a single contract.
 **And** `src/types` exports `ChatRequest`, `ChatResponse`, `Role` shapes matching `02-class.md` view B (FR-21)
 
 **And** `lib/utils.ts` shared helpers are defined (FR-21)
+
+**And** Zod `WebSearchArgsSchema` is defined for the LangChain tool input contract (FR-28)
 
 ## Epic 2: Foundation & Infra (Docker, Postgres, Clerk, Layered Skeleton)
 
@@ -277,7 +309,31 @@ So that NFR-7 (≥80% coverage of services + repositories) is enforced in CI.
 
 **And** a CI step fails the build if service + repository coverage is below 80% (NFR-7)
 
+**And** test files are colocated with source (`*.test.ts` next to each service/repository) (FR-29)
+
+**And** OpenAI, LangChain, Qdrant, Jina, and Clerk are mocked in unit tests so tests run offline/deterministically (FR-30, NFR-8)
+
+**And** the coverage gate enforces ≥80% and fails CI below threshold (FR-31)
+
 **And** at least one representative test exists per repository and per service introduced in E3/E4/E5 as those epics land
+
+### Story 2.6: E2E Test Harness (Playwright + Docker Compose)
+
+As a Maintainer,
+I want an e2e suite (Playwright) running against the Docker Compose stack,
+So that critical user journeys (auth, branching, asset upload, RAG, web search) are verified in CI.
+
+**Acceptance Criteria:**
+
+**Given** the project after E2.1–E2.5 are in place
+**When** the e2e suite is defined and run
+**Then** Playwright is configured and `npx playwright install` runs in CI (FR-32)
+
+**And** the suite runs against `docker compose up` (Postgres + Qdrant) with a DB reset between suites (FR-34)
+
+**And** it covers auth-gated flows, branching, asset upload, RAG, and web search (FR-33, NFR-9)
+
+**And** a smoke subset (auth, branch, asset, RAG, search) gates CI (FR-33, FR-34, NFR-9)
 
 ## Epic 3: Conversation & Message Core (Services, Streaming, Editing)
 
@@ -333,6 +389,8 @@ So that I get fast feedback and a persisted record.
 
 **And** on explicit termination the assistant message content is `"user terminated the response"` with `status: stopped` (FR-6)
 
+**And** web-sourced context (Jina, FR-26) is an additional retrieval source injected before completion alongside Qdrant RAG (FR-15)
+
 **And** time-to-first-token is < 1 s (NFR-5)
 
 ### Story 3.4: AiProvider Concrete Module (Streaming)
@@ -348,6 +406,8 @@ So that I can swap the model without rewriting services.
 **Then** tokens are emitted to `onChunk` and the stream completes
 
 **And** the default model is `gpt-4o-mini` and can be swapped by changing only this module, not the services (FR-22)
+
+**And** the agent registers the `WebSearchTool` (FR-27, FR-28) so the model can invoke live web search; tool calls route to `WebSearchProvider` (FR-24)
 
 ### Story 3.5: Message Editing (Edit-Latest, In-Place)
 
@@ -573,6 +633,8 @@ So that I read formatted assistant replies as they arrive.
 
 **And** message content is rendered as Markdown (UX-DR4, brief #7)
 
+**And** streamed assistant replies may include web-source citations when web search was used (FR-26)
+
 ### Story 6.4: Edit & Regenerate Controls
 
 As a user,
@@ -602,3 +664,55 @@ So that I can attach docs and manage them.
 **And** the UI supports uploading assets, viewing assets preserved in deleted replies, and explicitly deleting them (FR-12, FR-16, UX-DR8)
 
 **And** in edit mode, trailing assistant asset references are visible with a remove option (FR-17, UX-DR7)
+
+## Epic 7: Web Search (Jina API + LangChain Tool)
+
+Delivers G7, FR-24..FR-28, FR-26 context injection.
+
+### Story 7.1: Jina Web-Search Client (`JinaProvider`)
+
+As a Maintainer,
+I want a thin Jina client module,
+So that the model can fetch live web results.
+
+**Acceptance Criteria:**
+
+**Given** the E1 `WebSearchProvider` contract
+**When** `lib/websearch/jina.ts` is implemented
+**Then** it reads `JINA_API_KEY` from env, fails closed with a clear error if missing (FR-25)
+
+**And** it issues a query to Jina and normalizes results to `{title, url, snippet}` (FR-24)
+
+**And** query latency is < 1.5 s p95 (NFR-10)
+
+### Story 7.2: WebSearchTool (LangChain)
+
+As a Maintainer,
+I want a LangChain tool wrapping the Jina client,
+So that the LLM decides when to search the web.
+
+**Acceptance Criteria:**
+
+**Given** the E1 `WebSearchTool` contract and Zod `WebSearchArgsSchema` (FR-28)
+**When** the tool is registered with the agent / `AiProvider`
+**Then** on invocation it routes to `WebSearchProvider.search` (FR-24)
+
+**And** results and source URLs are captured for citation and observability (FR-26)
+
+**And** if Jina is unavailable the tool degrades gracefully without crashing the agent
+
+### Story 7.3: Web Context Injection
+
+As a user,
+I want web results included when relevant,
+So that answers cite live sources.
+
+**Acceptance Criteria:**
+
+**Given** a chat request where the LLM invokes web search
+**When** `ChatService` builds the prompt
+**Then** Jina web context is injected before completion alongside Qdrant RAG (FR-15, FR-26)
+
+**And** each web result carries its source URL for citation (FR-26)
+
+**And** web context supplements the per-conversation RAG and does not replace it (FR-14)

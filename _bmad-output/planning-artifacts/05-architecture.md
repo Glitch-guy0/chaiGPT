@@ -26,8 +26,14 @@ flowchart TB
     subgraph integ["Integrations (src/lib)"]
         ai["ai/langchain.ts<br/>(ChatOpenAI, stream)"]
         vec["vector/qdrant.ts<br/>(@langchain/qdrant)"]
+        ws["websearch/jina.ts + webSearchTool.ts<br/>(Jina AI + LangChain tool, FR-24..FR-28)"]
         cache["cache/redis.ts<br/>(Redis KV)"]
         auth["auth/session.ts<br/>(Clerk auth())"]
+    end
+
+    subgraph test["Testing (cross-cutting)"]
+        vitest["Vitest unit tests<br/>(mocked externals, ≥80% coverage, FR-29..FR-31)"]
+        playwright["Playwright e2e<br/>(Docker Compose, smoke gating CI, FR-32..FR-34)"]
     end
 
     subgraph persist["schema/ (Persistence Contracts)"]
@@ -42,16 +48,21 @@ flowchart TB
     svc --> repo
     svc --> ai
     svc --> vec
+    svc --> ws
     svc --> cache
     svc --> auth
-    repo --> ent
-    repo --> ds
-    ds --> PG[("Postgres")]
     vec --> Q[("Qdrant")]
+    ws --> JINA[("Jina AI API")]
     cache --> RED[("Redis")]
+    vitest -.-> svc
+    vitest -.-> integ
+    playwright -.->|"docker compose"| PG
+    playwright -.->|"docker compose"| Q
 
     classDef core fill:#1f2937,stroke:#f59e0b,color:#fff
     classDef integ fill:#334155,stroke:#38bdf8,color:#fff
+    classDef test fill:#065f46,stroke:#34d399,color:#fff
     class data core
-    class ai,vec,cache,auth integ
+    class ai,vec,ws,cache,auth integ
+    class vitest,playwright test
 ```

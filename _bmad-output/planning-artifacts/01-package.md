@@ -41,6 +41,9 @@ treeView-beta
                 langchain.ts                  # [I] AiProvider (ChatOpenAI, stream)
             vector/                           # INTEGRATION
                 qdrant.ts                     # [I] Qdrant store (@langchain/qdrant)
+            websearch/                        # INTEGRATION
+                jina.ts                       # [I] Jina web-search client (FR-24)
+                webSearchTool.ts              # [I] LangChain web-search tool (FR-27)
             cache/                            # INTEGRATION
                 redis.ts                      # [I] KV cache client
             auth/                             # Clerk helpers
@@ -49,6 +52,11 @@ treeView-beta
                 schemas.ts                    # Zod schemas
             utils.ts
         types/                                # APP types (ChatRequest, ChatResponse)
+    tests/                                    # TEST CODE (colocated *.test.ts + shared fixtures)
+        unit/
+        fixtures/
+    e2e/                                      # PLAYWRIGHT E2E (FR-32..FR-34, Docker Compose)
+        *.spec.ts
     schema/                                  # PERSISTENCE CONTRACTS
         entity/                               # Postgres / TypeORM migrations
         cache/                                # KV store schema
@@ -90,13 +98,14 @@ treeView-beta
 | Migrations | `src/lib/db/migrations` | TypeORM SQL migrations |
 | DataSource | `src/lib/db/data-source.ts` | Postgres connection |
 
-### 2.4 Integrations — `src/lib/{ai,vector,cache,auth}`
+### 2.4 Integrations — `src/lib/{ai,vector,websearch,cache,auth}`
 *External systems used directly (no port indirection). Depends on: services call them.*
 
 | Concern | Location | Tech |
 |---------|----------|------|
 | AI | `src/lib/ai/langchain.ts` | LangChain `ChatOpenAI` (stream) |
 | Vector | `src/lib/vector/qdrant.ts` | Qdrant via `@langchain/qdrant` |
+| Web Search | `src/lib/websearch/jina.ts`, `websearch/webSearchTool.ts` | Jina AI search client + LangChain tool (FR-24, FR-27) |
 | Cache | `src/lib/cache/redis.ts` | Redis KV |
 | Auth | `src/lib/auth/session.ts` | Clerk `auth()` |
 
@@ -106,6 +115,15 @@ treeView-beta
 | Validation | `src/lib/validation/schemas.ts` | Zod schemas |
 | Utils | `src/lib/utils.ts` | helpers |
 | App types | `src/types` | `ChatRequest`, `ChatResponse` |
+
+### 2.6 Tests — `tests/`, `e2e/`
+*Unit tests colocated with source (`*.test.ts`); shared fixtures in `tests/fixtures/`. Playwright e2e in `e2e/*.spec.ts` against Docker Compose.*
+
+| Concern | Location | Tech |
+|---------|----------|------|
+| Unit | `src/**/*.test.ts`, `tests/unit/` | Vitest (FR-29..FR-31) |
+| Fixtures | `tests/fixtures/` | MockJinaProvider, MockQdrantStore, MockAiProvider |
+| E2E | `e2e/*.spec.ts` | Playwright, Docker Compose (Postgres + Qdrant) (FR-32..FR-34) |
 
 ### 2.6 Persistence Schema — `schema/`
 | Concern | Location | Defines |
@@ -121,7 +139,7 @@ treeView-beta
 Arrows point **inward to services**, then down to repositories/integrations:
 
 ```
-app (routes + middleware) → services → { repositories (TypeORM) | ai | vector | cache }
+app (routes + middleware) → services → { repositories (TypeORM) | ai | vector | websearch | cache }
 ```
 
 Next.js and TypeORM are used directly throughout — there is **no port/adapter abstraction layer** to decouple them. Cross-cutting auth is handled by Next.js middleware + `auth()` in route handlers.
@@ -136,9 +154,11 @@ flowchart LR
     B -->|persists via| R["lib/db repositories (TypeORM)"]
     B -->|generates via| AI["lib/ai (LangChain)"]
     B -->|retrieves via| V["lib/vector (Qdrant)"]
+    B -->|searches via| WS["lib/websearch (Jina)"]
     B -->|caches via| C["lib/cache (Redis)"]
     B -->|auth via| AUTH["lib/auth (Clerk)"]
     R --> DB[("Postgres")]
     V --> Q[("Qdrant")]
     C --> RED[("Redis")]
+    WS --> JINA[("Jina AI API")]
 ```

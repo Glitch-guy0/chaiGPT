@@ -13,6 +13,8 @@ flowchart TD
         convRepo["TypeOrmConversationRepository<br/>(ds=AppDataSource)"]
         msgRepo["TypeOrmMessageRepository<br/>(ds=AppDataSource)"]
         aiProv["AiProvider<br/>(LangChain extension over OpenAI ChatOpenAI)"]
+        jinaProv["JinaProvider<br/>(apiKey: JINA_API_KEY)"]
+        wsTool["WebSearchTool<br/>(registered on AiProvider/agent)"]
     end
 
     subgraph data["Live entities"]
@@ -22,12 +24,28 @@ flowchart TD
         resp["ChatResponse{ id, content, conversationId:'c1' }"]
     end
 
+    subgraph test["Test harness (FR-30)"]
+        mockJina["MockJinaProvider"]
+        mockVec["MockQdrantStore"]
+        mockAi["MockAiProvider"]
+        vitest["vitestRunner"]
+        pw["playwrightRunner"]
+    end
+
     cr --> chatSvc
     chatSvc --> convRepo
     chatSvc --> msgRepo
     chatSvc --> aiProv
+    aiProv --> wsTool
+    wsTool --> jinaProv
+    jinaProv --> JINA["Jina AI API"]
     convRepo --> conv
     msgRepo --> m1
     msgRepo --> m2
     aiProv --> resp
+
+    vitest -.-> mockJina
+    vitest -.-> mockVec
+    vitest -.-> mockAi
+    pw -.-> chatSvc
 ```
