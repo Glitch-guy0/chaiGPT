@@ -34,5 +34,8 @@ export { Message } from "./entities/message.entity"
 export { Asset } from "./entities/asset.entity"
 
 export type { ConversationRepository, ConversationStatus } from "./repositories/conversation.repository"
+export { TypeORMConversationRepository } from "./repositories/conversation.repository"
 export type { MessageRepository } from "./repositories/message.repository"
+export { TypeORMMessageRepository } from "./repositories/message.repository"
 export type { AssetRepository } from "./repositories/asset.repository"
+export { TypeORMAssetRepository } from "./repositories/asset.repository"

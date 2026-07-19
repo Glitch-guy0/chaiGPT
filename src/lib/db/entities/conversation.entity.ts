@@ -25,6 +25,9 @@ export class Conversation {
   @Column()
   title!: string
 
+  @Column({ type: "varchar", default: "active" })
+  status!: string
+
   @Column({ nullable: true })
   model?: string
 
