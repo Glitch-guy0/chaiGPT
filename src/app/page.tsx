@@ -16,8 +16,10 @@ export default function Home() {
       const userMessage: Message = {
         id: crypto.randomUUID(),
         conversationId: conversation?.id || crypto.randomUUID(),
+        userId: conversation?.userId || crypto.randomUUID(),
         role: "user",
         content,
+        status: "complete",
         createdAt: new Date(),
       }
 
@@ -32,8 +34,10 @@ export default function Home() {
         const assistantMessage: Message = {
           id: response.id,
           conversationId: response.conversationId,
+          userId: conversation?.userId || crypto.randomUUID(),
           role: "assistant",
           content: response.content,
+          status: "complete",
           createdAt: new Date(),
         }
 
@@ -43,6 +47,7 @@ export default function Home() {
             ? prev
             : {
                 id: response.conversationId,
+                userId: conversation?.userId || crypto.randomUUID(),
                 title: content.slice(0, 50),
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -52,8 +57,10 @@ export default function Home() {
         const errorMessage: Message = {
           id: crypto.randomUUID(),
           conversationId: conversation?.id || crypto.randomUUID(),
+          userId: conversation?.userId || crypto.randomUUID(),
           role: "assistant",
           content: "Sorry, something went wrong. Please try again.",
+          status: "complete",
           createdAt: new Date(),
         }
         setMessages((prev) => [...prev, errorMessage])
