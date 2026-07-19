@@ -5,7 +5,7 @@ validated: 2026-07-19
 validated_by: bmad-prd (validate intent)
 result: PASS
 updated: 2026-07-19
-update_note: "MAJOR UPDATE — architecture shifted from hexagonal (ports/adapters, framework-free domain) to a tightly-integrated Next.js + TypeORM layered model. Coupling to Next.js and TypeORM is now approved. All UML artifacts (01/02/03/05/06/07/09) and PRD FR-21..FR-23, G5, §8, §12 reconciled. Re-validation still PASS; no open blockers introduced."
+update_note: "MAJOR UPDATE (1) — architecture shifted from hexagonal to tightly-integrated Next.js + TypeORM layered model. Re-validation PASS. MAJOR UPDATE (2) — added web search (Jina AI) + LangChain web-search tool and detailed testing strategy (Vitest unit + Playwright e2e). New FR-24..FR-34, NFR-8..NFR-10, G7/G8, US-12/US-13, §13 Q5..Q7. Re-validation PASS; no open blockers."
 ---
 
 # Validation Report — chaiGPT PRD
@@ -23,6 +23,27 @@ update_note: "MAJOR UPDATE — architecture shifted from hexagonal (ports/adapte
 | Prioritization | ✅ PASS | All FRs carry MoSCoW tags (Must/Should). |
 
 **Verdict: PASS** — the PRD is approved and internally consistent with the v2 UML artifacts. Ready to drive epics/stories.
+
+## Update 2 — Web Search + Testing Strategy (2026-07-19)
+
+Added via Update intent (analyst brief + PM PRD): Jina web-search API integration, LangChain web-search tool, detailed unit testing, and e2e testing.
+
+| Dimension | Status | Notes |
+|-----------|--------|-------|
+| Completeness | ✅ PASS | Added §6.8 Web Search (Jina), §6.9 Web Search Tool, §6.10 Unit Testing, §6.11 E2E Testing. |
+| Consistency (internal) | ✅ PASS | New FR-24..FR-34 extend (no renumber) existing FRs; NFR-8..NFR-10 extend NFRs; G7/G8, US-12/US-13, §8 Testing row, §10/§11/§12/§13 updated to match. |
+| Consistency (vs brief) | ✅ PASS | Brief `Testing Strategy` section (Vitest + Playwright) and decisions #8/#9 align with PRD FR-24..FR-34. |
+| Prioritization | ✅ PASS | New FRs carry MoSCoW tags. |
+
+**New IDs:** FR-24 [Jina client], FR-25 [JINA_API_KEY], FR-26 [web context source]; FR-27 [web-search tool], FR-28 [tool schema]; FR-29 [Vitest], FR-30 [mock externals], FR-31 [≥80% gate]; FR-32 [Playwright], FR-33 [e2e scope], FR-34 [Docker Compose e2e]. NFR-8 [offline unit], NFR-9 [e2e green], NFR-10 [web latency <1.5s]. G7 (web search), G8 (testing). US-12, US-13. §13 Q5 (Jina context source), Q6 (e2e = Playwright), Q7 (unit = Vitest mocked).
+
+**Blockers:** None. **Warnings:** None. Brief and PRD reconciled.
+
+## Recommended Next Actions
+
+1. PRD is **approved** — proceed to epics/stories.
+2. Regenerate epic/story breakdown from FRs (MoSCoW order: Must first) — add web-search and testing epics/stories (E1 types for Jina/WebSearchTool; E3 streaming + tool routing; E2.5 unit + new E2.6 e2e).
+3. Begin build sequence per PRD §12 once code scaffolding starts.
 
 ## Blockers (must fix before implementation)
 

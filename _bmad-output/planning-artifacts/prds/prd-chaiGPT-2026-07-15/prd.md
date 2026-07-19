@@ -26,6 +26,8 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 - **G4** — Asset lifecycle (upload, embed, reference, explicit delete) on a named Docker volume.
 - **G5** — Layered architecture tightly integrated with Next.js + TypeORM: clean separation by concern (routes, services, entities, repositories), no artificial framework-decoupling layer.
 - **G6** — Production-grade infra (Postgres + Qdrant via Docker Compose, dev/prod scripts).
+- **G7** — Live web search capability: the assistant can fetch current, web-sourced answers via Jina AI, complementing RAG over uploaded docs.
+- **G8** — Testing & quality: unit tests (Vitest) with mocked externals plus end-to-end tests (Playwright), gated in CI.
 
 ## 3. Non-Goals (Out of Scope, v1)
 
@@ -55,6 +57,8 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 | US-9 | user | have assets preserved in deleted replies | history stays coherent |
 | US-10 | maintainer | swap AI model/provider via the AiProvider module | I keep services unchanged |
 | US-11 | maintainer | run dev/prod stacks via npm scripts | I reproduce envs consistently |
+| US-12 | user | get web-sourced answers for live-data questions | I get current information beyond the model's training cutoff and my uploaded docs |
+| US-13 | maintainer | run unit + e2e tests | I can trust that changes don't break auth, branching, RAG, or web search |
 
 ## 6. Functional Requirements
 
@@ -95,6 +99,25 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 - **FR-22 [Should]** AI provider kept behind a thin `AiProvider` module (LangChain) so the model can be swapped without rewriting services; not a hard port boundary.
 - **FR-23 [Should]** Cross-cutting concerns (Clerk auth, logging) handled by Next.js middleware / route-handler helpers rather than a separate interceptor framework.
 
+### 6.8 Web Search (Jina AI)
+- **FR-24 [Should]** Integrate a **Jina web-search client** (Jina AI Search / Reader API) as a thin module (`JinaProvider`/`WebSearchProvider`) that issues live web queries and normalizes results (title, URL, snippet/content) for downstream consumption.
+- **FR-25 [Must]** Jina API access is configured via environment variable (`JINA_API_KEY`) surfaced in `.env.example`; the key is never hard-coded and requests fail closed with a clear error when the key is missing.
+- **FR-26 [Should]** Jina web results are available as an **additional context source in retrieval**, alongside Qdrant RAG. Web-sourced context is injected into the prompt before completion (consistent with FR-15) and each web result carries its source URL for citation. Web context supplements, and does not replace, per-conversation RAG (FR-14).
+
+### 6.9 Web Search Tool (LangChain)
+- **FR-27 [Must]** Expose web search as a **LangChain tool** the LLM can invoke, so the model itself decides *when* a live web lookup is warranted. This tool is **distinct from RAG over uploaded docs**: RAG retrieves from the current conversation's embedded assets (FR-14), while the web-search tool calls Jina (FR-24) for live external information.
+- **FR-28 [Should]** Define the tool with a typed schema (name, description, input args validated via Zod) and register it with the `AiProvider`/agent so tool-calls are routed to the Jina client (FR-24). Tool invocations, results, and any source URLs are captured in the completion path for citation and observability.
+
+### 6.10 Unit Testing
+- **FR-29 [Must]** Unit tests use **Vitest**, colocated with the code under test (services and repositories), e.g. `*.test.ts` next to each service/repository.
+- **FR-30 [Must]** External dependencies are **mocked** in unit tests — OpenAI/LangChain, Qdrant, Jina, and Clerk — so unit tests run offline and deterministically with no network access.
+- **FR-31 [Must]** A coverage gate enforces **≥ 80% coverage of services + repositories** (ties to NFR-7); the suite fails below threshold and is enforced in CI.
+
+### 6.11 End-to-End Testing
+- **FR-32 [Must]** End-to-end tests use **Playwright** (selected as best fit for Next.js 16 App Router — first-class Clerk-authenticated flows and reliable handling of the streaming SSE chat UI).
+- **FR-33 [Must]** E2E scope covers the critical user journeys: **auth-gated flows** (sign-in / protected redirects), **branching**, **asset upload**, **RAG answers**, and **web search**.
+- **FR-34 [Should]** E2E tests run against a **Docker Compose stack (Postgres + Qdrant)** to exercise real persistence and vector retrieval; a smoke subset (auth, branch, asset, RAG, search) gates CI.
+
 ## 7. Non-Functional Requirements
 
 | ID | Requirement | Target |
@@ -106,6 +129,9 @@ This PRD reconciles the brief's target state with the planned architecture. Wher
 | NFR-5 | Streaming time-to-first-token | < 1 s |
 | NFR-6 | DB migrations are reversible (TypeORM) | Required for prod |
 | NFR-7 | Test coverage of services + repositories | ≥ 80% |
+| NFR-8 | Unit tests deterministic & offline (externals mocked: OpenAI, Qdrant, Jina, Clerk) via Vitest | Required for CI |
+| NFR-9 | E2E smoke suite (Playwright) green against Docker Compose (Postgres + Qdrant) | Required gate in CI |
+| NFR-10 | Web search latency overhead (Jina query round-trip) | < 1.5 s (p95) |
 
 ## 8. Architecture Alignment (from UML artifacts)
 
@@ -113,8 +139,9 @@ The layered plan (`05-architecture.md`) maps directly to requirements:
 - **Routes (Next.js App Router)** — route handlers, Clerk middleware. → FR-1, FR-20.
 - **Services** — `ChatService`, `ConversationService`, `MessageService`, `AssetService` (use-case logic). → FR-6, FR-8.
 - **Entities + Repositories (TypeORM)** — `Conversation`, `Message`, `Asset` entities; TypeORM repositories for Postgres. → FR-21.
-- **Integrations** — LangChain AI, Qdrant vector store, KV cache, asset filesystem. → FR-14, FR-22.
+- **Integrations** — LangChain AI, Qdrant vector store, KV cache, asset filesystem, **Jina web-search client + web-search LangChain tool**. → FR-14, FR-22, FR-24, FR-27.
 - **schema/** — `entity/` (SQL migrations), `cache/` (KV), `vector/` (Qdrant). → FR-21.
+- **Testing** — Vitest unit tests colocated with services/repositories (externals mocked); Playwright e2e against Docker Compose. → FR-29..FR-34, NFR-7..NFR-9.
 
 ### 8.1 Gaps between Brief and current UML (action required)
 The UML still carries the old hexagonal port/adapter wording and must be simplified to the tightly-integrated Next.js + TypeORM model:
@@ -176,6 +203,8 @@ erDiagram
 - Auth-gated app with 0 unauthenticated data leaks (FR-3).
 - Branching behaves per FR-8..FR-11 in manual + automated tests.
 - RAG answers cite uploaded docs in eval set (≥ 90% top-3 relevance).
+- Web-search answers cite live source URLs when the web-search tool is invoked (FR-26, FR-28).
+- Green CI test suite: unit coverage ≥ 80% (services + repositories) plus an e2e smoke pass of auth, branching, asset upload, RAG, and web search.
 - `npm run start:dev` brings up Postgres + Qdrant + app with named volume.
 
 ## 11. Dependencies & Assumptions
@@ -183,6 +212,8 @@ erDiagram
 - Clerk project + keys available (`.env.example`).
 - Docker + Docker Compose installed in dev/prod.
 - OpenAI-compatible key for LangChain (`gpt-4o-mini` default).
+- Jina AI API key for web search (`JINA_API_KEY` in `.env.example`).
+- Playwright browser binaries installed for e2e (`npx playwright install`).
 - Fresh Postgres start; existing SQLite data cleared (brief decision #4).
 
 ## 12. Migration / Build Sequence (from `06-git.md`)
@@ -194,8 +225,11 @@ erDiagram
 5. LangChain `AiProvider` module.
 6. Asset pipeline + Qdrant via `@langchain/qdrant`.
 7. KV cache module.
-8. Shared `lib/types`, `lib/utils`.
-9. Update UML artifacts to the integrated model, then docs.
+8. Jina web-search client (`JINA_API_KEY`) as an additional context source.
+9. Web-search LangChain tool (tool definition + invocation path via `AiProvider`).
+10. Test harness: Vitest unit tests (mocked externals, ≥80% service/repo coverage) + Playwright e2e (auth/branch/asset/RAG/search against Docker Compose).
+11. Shared `lib/types`, `lib/utils`.
+12. Update UML artifacts to the integrated model, then docs.
 
 ## 13. Resolved Decisions (formerly Open Questions)
 
@@ -203,6 +237,9 @@ erDiagram
 - **Q2 (RAG scope):** Per-conversation — retrieve top-3 only from the current conversation's linked assets. → FR-14.
 - **Q3 (stopped re-run):** Re-runnable — regenerate overwrites same message ID, no branch created. → FR-18.
 - **Q4 (embed granularity):** Per chunk — one embedding per LangChain chunk (page / 2000-char); each vector record references parent chunk + asset for citation. → FR-14.
+- **Q5 (web context source):** Jina AI is the live web context source, exposed both as an additional retrieval source and as an LLM-invoked LangChain tool distinct from RAG. → FR-24, FR-26, FR-27.
+- **Q6 (e2e tooling):** End-to-end testing uses **Playwright** — best fit for Next.js 16 App Router, Clerk-authenticated flows, and streaming SSE UI. → FR-32.
+- **Q7 (unit tooling):** Unit tests use **Vitest** with all externals mocked (OpenAI, Qdrant, Jina, Clerk), colocated with services/repositories, ≥80% coverage gate. → FR-29..FR-31.
 
 ## 14. Known Issues / Accepted Bugs
 

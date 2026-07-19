@@ -24,6 +24,7 @@ Build a context-aware conversational AI platform where authenticated users can h
 - Qdrant vector DB context retrieval (top-3 segments per query; PDFs chunked page-by-page, text files chunked at 2000 characters)
 - Conversation history with root/leaf tracking
 - Dockerized dev/prod environments via `infra/docker-compose.yml`
+- Jina Web Search API integration for live web retrieval, exposed as a LangChain tool callable by the model when RAG over uploaded docs is insufficient.
 
 ## Key Architectural Decisions
 
@@ -34,6 +35,8 @@ Build a context-aware conversational AI platform where authenticated users can h
 5. **Branching:** Messages store `parent_id`; conversations store `root_conversation_id` and `last_message_id`. Sibling messages share the same `parent_id`. Branched conversations share the same `root_conversation_id`. Branching can be initiated from any agent message. Once a conversation continues with a sibling branch, the sidebar shows only the siblings; the conversation does not continue further with siblings. If a user edits a message, only the recently created sibling gets updated — not all siblings. Branching takes only the recently updated message for further conversation. Retries after that are ignored. The branched section continues with whatever `id` it started with (known bug, approved). Editing updates message content in place and does not affect branching.
 6. **Asset Pipeline:** Local filesystem staging → embed → delete original. No external object store in v1. A named Docker volume is created on `start:dev:infra`/`start:prod` and deleted on `stop:dev:infra`/`stop:prod` if explicitly provided. Assets referenced in deleted assistant replies are preserved and shown in the conversation; users may explicitly delete them. When the user is in edit mode, asset references from the trailing assistant reply remain visible with an option to remove them, performed according to user action.
 7. **Message Editing & Content Constraints:** Only the most recent user message is editable; all past user and agent messages have editing disabled. On edit, the latest user message and its trailing assistant reply are updated in place (same IDs, updated content) — no delete-and-replace. Editing is a content-only operation and does not affect branching. `conversations.last_message_id` remains unchanged. Messages have a `status` enum column: `processing`, `complete`, `stopped`. When the user sends a query, the user message is saved and a trailing assistant message is created with `status: processing`. Once the LLM streaming response completes, the assistant message status updates to `complete`. If the user explicitly terminates the response, the assistant message content shows "user terminated the response" and status updates to `stopped`. Maximum 500 characters per message. Content exceeding 200 characters on paste is converted to a `.txt` file and uploaded as an asset.
+8. **Web Search (Jina AI):** Jina AI web search/reader API (`s.jina.ai`) provides live web retrieval. Server-side wrapper service calls Jina, normalizes results, and returns snippets + source URLs. Distinct from Qdrant RAG — RAG answers from uploaded docs; web search answers from the live internet. The model decides when to call web search via a dedicated LangChain tool.
+9. **Web Search Tool:** A callable LangChain tool (`WebSearchTool`) wraps the Jina wrapper service. The tool is registered in the LangChain agent so the model can autonomously decide to search the web. Tool inputs: query string. Tool outputs: normalized web result snippets with citations. Fallback behavior: if Jina is unavailable, the tool returns a graceful error message rather than crashing the chain.
 
 ## Infrastructure
 
@@ -44,7 +47,29 @@ Build a context-aware conversational AI platform where authenticated users can h
   - `npm run start:dev:infra` — create Docker volume (if not exists) and start Postgres + Qdrant via Docker Compose
   - `npm run stop:dev:infra` — stop dev Docker instances and delete the volume if explicitly provided
   - `npm run start:prod` — build and start full production stack (Postgres + Qdrant + application) via Docker Compose
-  - `npm run stop:prod` — stop prod Docker instances and delete the volume if explicitly provided
+   - `npm run stop:prod` — stop prod Docker instances and delete the volume if explicitly provided
+
+## Testing Strategy
+
+### Unit Testing
+
+- **Framework:** Vitest. Colocated test files (`*.test.ts`) alongside services, repositories, and utilities.
+- **Structure:** Each service/repository has a corresponding `*.service.test.ts` / `*.repository.test.ts`. Shared fixtures live in `tests/fixtures/`.
+- **Mocking:** External dependencies mocked at the boundary — OpenAI client, Qdrant client, Jina client, Clerk SDK. Use Vitest `vi.mock()` with factory functions. No real network calls in unit tests.
+- **Coverage Gate:** ≥80% line coverage enforced via Vitest `--coverage` with CI failure on threshold breach. NFR-7 in PRD.
+- **Scope:** Pure business logic, TypeORM entity hydration, branching algorithm correctness, asset lifecycle, Jina wrapper normalization, WebSearchTool invocation logic.
+
+### End-to-End (E2E) Testing
+
+- **Framework:** Playwright (industry standard for Next.js App Router; supports Clerk-auth flows, streaming UI assertions, and multi-tab scenarios). Chosen over Cypress for native Next.js integration and better streaming response handling.
+- **Environment:** E2E suite runs against Docker Compose stack (`docker compose up -d`) with Postgres + Qdrant. Tests reset DB state via TypeORM migrations or seed scripts between suites.
+- **Coverage Areas:**
+  - Auth-gated flows: sign-up → protected route access → conversation CRUD scoped to user.
+  - Branching: create branch from agent message → sidebar sibling rendering → edit-only-latest-user behavior.
+  - Asset pipeline: upload PDF/TXT/MD → embed lifecycle → explicit delete.
+  - RAG: upload doc → ask question → verify Qdrant retrieval augmented response.
+  - Web search: trigger search via LangChain tool → verify live Jina results in streaming response.
+- **CI:** Playwright runs in CI against ephemeral Docker Compose; artifacts uploaded on failure.
 
 ## What We're NOT Building Now
 
@@ -66,3 +91,5 @@ Build a context-aware conversational AI platform where authenticated users can h
 10. Implement large-paste-to-txt asset flow and 500-char message limit
 11. Update API routes for branching queries and asset upload
 12. Update UI state model for branch-aware conversation list
+13. Add Vitest unit test setup (colocated tests, fixtures, mocks for OpenAI/Qdrant/Jina/Clerk, ≥80% coverage gate via CI)
+14. Add Playwright e2e setup (Docker Compose-backed, auth flows, branching, asset upload, RAG, web search coverage)
