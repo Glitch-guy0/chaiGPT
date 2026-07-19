@@ -1,6 +1,6 @@
 ---
 title: chaiGPT Product Requirements Document
-status: draft
+status: approved
 created: 2026-07-19
 updated: 2026-07-19
 based_on:
@@ -59,40 +59,41 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 ## 6. Functional Requirements
 
 ### 6.1 Authentication & Scoping
-- **FR-1** Integrate Clerk (`@clerk/nextjs`); middleware protects routes, API routes verify session (`IGuard` port).
-- **FR-2** All conversations and messages are scoped to `userId` (Clerk `sub`).
-- **FR-3** Unauthenticated requests to protected routes return 401 / redirect.
+- **FR-1 [Must]** Integrate Clerk (`@clerk/nextjs`); middleware protects routes, API routes verify session (`IGuard` port).
+- **FR-2 [Must]** All conversations and messages are scoped to `userId` (Clerk `sub`).
+- **FR-3 [Must]** Unauthenticated requests to protected routes return 401 / redirect.
 
 ### 6.2 Conversation & Message Model (v2)
-- **FR-4** `Conversation` gains: `userId`, `rootConversationId`, `lastMessageId`, `model`.
-- **FR-5** `Message` gains: `userId`, `parentId`, `status` enum (`processing` | `complete` | `stopped`), retains `role`/`content`/`model`.
-- **FR-6** On send: user message saved, trailing assistant message created with `status: processing`; on stream completion → `complete`; on explicit termination → content `"user terminated the response"`, `status: stopped`.
-- **FR-7** Max 500 characters per message; paste > 200 chars → converted to `.txt` asset and uploaded.
+- **FR-4 [Must]** `Conversation` gains: `userId`, `rootConversationId`, `lastMessageId`, `model`.
+- **FR-5 [Must]** `Message` gains: `userId`, `parentId`, `status` enum (`processing` | `complete` | `stopped`), retains `role`/`content`/`model`.
+- **FR-6 [Must]** On send: user message saved, trailing assistant message created with `status: processing`; on stream completion → `complete`; on explicit termination → content `"user terminated the response"`, `status: stopped`.
+- **FR-7 [Must]** Max 500 characters per message; paste > 200 chars → converted to `.txt` asset and uploaded.
 
 ### 6.3 Branching
-- **FR-8** Sibling messages share `parentId`; branched conversations share `rootConversationId`.
-- **FR-9** Branching from an assistant message creates a sibling under the same parent; sidebar shows only siblings of the active branch.
-- **FR-10** Editing updates only the most recently created sibling; branching continues from that message. Retries after branch start are ignored (known bug, approved).
-- **FR-11** Editing is content-only, in place (same IDs); does not affect branching; `lastMessageId` unchanged.
+- **FR-8 [Must]** Sibling messages share `parentId`; branched conversations share `rootConversationId`.
+- **FR-9 [Must]** Branching from an assistant message creates a sibling under the same parent; sidebar shows only siblings of the active branch.
+- **FR-10 [Must]** Editing updates only the most recently created sibling; branching continues from that message.
+- **FR-11 [Must]** Editing is content-only, in place (same IDs); does not affect branching; `lastMessageId` unchanged.
 
 ### 6.4 Retrieval-Augmented Generation
-- **FR-12** Asset upload stages to filesystem, embeds via LangChain, deletes original; no external object store in v1.
-- **FR-13** PDFs chunked page-by-page; TXT/MD chunked at 2000 characters (LangChain splitters).
-- **FR-14** Qdrant stores embeddings; top-3 segments retrieved per query (`IVectorPort` → `VectorStoreAdapter` via `@langchain/qdrant`).
-- **FR-15** Retrieved context is injected into the prompt before completion.
+- **FR-12 [Must]** Asset upload stages to a **shared named Docker volume**, embeds via LangChain, deletes original; no external object store in v1. Logical user isolation is enforced at the DB layer (`Asset.userId`), not at the volume level.
+- **FR-13 [Must]** PDFs chunked page-by-page; TXT/MD chunked at 2000 characters (LangChain splitters).
+- **FR-14 [Must]** Qdrant stores **one embedding per chunk**; top-3 segments retrieved per query, scoped to the **current conversation's** linked assets (`IVectorPort` → `VectorStoreAdapter` via `@langchain/qdrant`). Each vector record references its parent chunk + asset for citation.
+- **FR-15 [Must]** Retrieved context is injected into the prompt before completion.
 
 ### 6.5 Asset Lifecycle
-- **FR-16** Assets referenced in deleted assistant replies are preserved and shown; user may explicitly delete.
-- **FR-17** In edit mode, trailing assistant asset references remain visible with an option to remove per user action.
+- **FR-16 [Should]** Assets referenced in deleted assistant replies are preserved and shown; user may explicitly delete.
+- **FR-17 [Should]** In edit mode, trailing assistant asset references remain visible with an option to remove per user action.
 
 ### 6.6 Streaming & Validation
-- **FR-18** Chat completions stream via SSE (existing behavior, preserved).
-- **FR-19** Inbound requests validated with Zod (`ChatRequestSchema`, `ConversationSchema`, etc.).
+- **FR-18 [Should]** A `status: stopped` assistant message is **re-runnable**: the user can regenerate a new completion that overwrites the same message ID (`status` → `processing` → `complete`). This does not create a branch.
+- **FR-19 [Must]** Chat completions stream via SSE (existing behavior, preserved).
+- **FR-20 [Must]** Inbound requests validated with Zod (`ChatRequestSchema`, `ConversationSchema`, etc.).
 
 ### 6.7 Architecture & Extensibility
-- **FR-20** Domain core has zero Next/TypeORM imports; persistence/AI behind ports (`IConversationRepository`, `IMessageRepository`, `IAiProvider`, `ICachePort`, `IVectorPort`).
-- **FR-21** AI provider swappable via plugins (`IAiStrategy`, e.g. `Gpt4oMiniStrategy`) — Open/Closed.
-- **FR-22** Cross-cutting concerns isolated as ports: `IGuard`, `IInterceptor`, `ITransform`.
+- **FR-21 [Must]** Domain core has zero Next/TypeORM imports; persistence/AI behind ports (`IConversationRepository`, `IMessageRepository`, `IAiProvider`, `ICachePort`, `IVectorPort`).
+- **FR-22 [Should]** AI provider swappable via plugins (`IAiStrategy`, e.g. `Gpt4oMiniStrategy`) — Open/Closed.
+- **FR-23 [Should]** Cross-cutting concerns isolated as ports: `IGuard`, `IInterceptor`, `ITransform`.
 
 ## 7. Non-Functional Requirements
 
@@ -109,11 +110,11 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 ## 8. Architecture Alignment (from UML artifacts)
 
 The hexagonal plan (`05-architecture.md`) maps directly to requirements:
-- **Inbound adapters** — controllers (route handlers), middleware, guards, interceptors, transformations. → FR-1, FR-19, FR-22.
+- **Inbound adapters** — controllers (route handlers), middleware, guards, interceptors, transformations. → FR-1, FR-20, FR-23.
 - **Application** — `ChatService`, `ConversationService`, `MessageService`. → FR-6, FR-8.
-- **Domain** — `Conversation`, `Message` entities + ports. → FR-20.
-- **Outbound adapters** — TypeORM (Postgres), LangChain AI, cache (KV), vector (Qdrant), plugins. → FR-14, FR-21.
-- **schema/** — `entity/` (SQL), `cache/` (KV), `vector/`. → FR-20.
+- **Domain** — `Conversation`, `Message` entities + ports. → FR-21.
+- **Outbound adapters** — TypeORM (Postgres), LangChain AI, cache (KV), vector (Qdrant), plugins. → FR-14, FR-22.
+- **schema/** — `entity/` (SQL), `cache/` (KV), `vector/`. → FR-21.
 
 ### 8.1 Gaps between Brief and current UML (action required)
 The UML was authored against the *current* SQLite/LangChain code and does **not** yet show:
@@ -197,9 +198,14 @@ erDiagram
 9. Shared `lib/types`, `lib/interfaces`.
 10. Update UML artifacts to v2, then docs.
 
-## 13. Open Questions
+## 13. Resolved Decisions (formerly Open Questions)
 
-- Q1: Is the named Docker volume for assets created per-user or shared? (Brief implies shared named volume.)
-- Q2: RAG retrieval scope — whole account or per-conversation? (Brief implies per-query across user docs; confirm.)
-- Q3: Should `status: stopped` assistant messages be re-runnable? (Brief: retries after branch ignored — confirm conflicts.)
-- Q4: Asset embedding granularity — per chunk or per file? (FR-14 implies per chunk; confirm `ASSET`↔`MESSAGE` link.)
+- **Q1 (volume):** Shared named Docker volume for all users; logical isolation via `Asset.userId` at DB layer. → FR-12.
+- **Q2 (RAG scope):** Per-conversation — retrieve top-3 only from the current conversation's linked assets. → FR-14.
+- **Q3 (stopped re-run):** Re-runnable — regenerate overwrites same message ID, no branch created. → FR-18.
+- **Q4 (embed granularity):** Per chunk — one embedding per LangChain chunk (page / 2000-char); each vector record references parent chunk + asset for citation. → FR-14.
+
+## 14. Known Issues / Accepted Bugs
+
+- **KI-1** After a branch is started from a message, subsequent retries on that branch are ignored (no new sibling created). Approved as accepted behavior per brief; not a requirement. Branching continues from the most recently updated sibling (FR-10).
+- **KI-2** `conversations.last_message_id` is not updated by message editing (FR-11) — by design, to keep branch pointers stable.

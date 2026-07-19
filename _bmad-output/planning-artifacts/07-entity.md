@@ -1,59 +1,42 @@
-# Entity Diagram — chaiGPT Persistence Model
+# Entity Diagram — chaiGPT Persistence Model (v2)
 
-Mirrors `schema/entity/` (SQL) and the TypeORM entities today: `Conversation` 1—* `Message`.
+Supersedes the v1 SQLite model. Mirrors the PRD §9 v2 data model and `schema/`: `entity/` (Postgres SQL), `cache/` (KV), `vector/` (Qdrant). Postgres replaces SQLite; Qdrant replaces the generic vector store.
 
 ```mermaid
 erDiagram
+    USER {
+        string id PK "Clerk sub"
+    }
     CONVERSATION {
         uuid id PK
+        string userId FK
+        uuid rootConversationId FK
+        uuid lastMessageId FK
         string title
-        string model "nullable"
+        string model
         datetime createdAt
         datetime updatedAt
     }
     MESSAGE {
         uuid id PK
         uuid conversationId FK
+        uuid userId FK
+        uuid parentId FK
         string role "user|assistant|system"
         text content
-        string model "nullable"
+        string model
+        string status "processing|complete|stopped"
         datetime createdAt
     }
-    CONVERSATION ||--o{ MESSAGE : "has"
-```
-
-## Entity as Class (for domain modeling)
-
-```mermaid
-classDiagram
-    class Conversation {
-        +id: string
-        +title: string
-        +model?: string
-        +createdAt: Date
-        +updatedAt: Date
-        -messages: Message[]
-        +addMessage(content, role): Message
-        +rename(title): void
-        +latest(): Message|null
+    ASSET {
+        uuid id PK
+        uuid userId FK
+        uuid conversationId FK
+        string filename
+        string mime
+        string path "shared docker volume"
+        datetime createdAt
     }
-    class Message {
-        +id: string
-        +conversationId: string
-        +role: "user"|"assistant"|"system"
-        +content: string
-        +model?: string
-        +createdAt: Date
-        +isUser(): boolean
-    }
-    Conversation "1" *-- "0..*" Message : contains
-```
-
-## schema/ partition (entity / cache / vector)
-
-```mermaid
-erDiagram
-    CONVERSATION ||--o{ MESSAGE : has
     CACHE_ENTRY {
         string key PK
         string value
@@ -62,9 +45,84 @@ erDiagram
     }
     VECTOR_RECORD {
         uuid id PK
-        uuid refId FK
+        uuid assetId FK
+        uuid chunkIndex
         float embedding
-        string kind "message|doc"
+        text chunkText
+        string kind "doc"
     }
-    MESSAGE ||--o{ VECTOR_RECORD : embedded_as
+    USER ||--o{ CONVERSATION : owns
+    CONVERSATION ||--o{ MESSAGE : contains
+    MESSAGE ||--o{ MESSAGE : "parent of (branch)"
+    CONVERSATION ||--o{ ASSET : references
+    MESSAGE ||--o{ ASSET : "embeds into vector"
+    ASSET ||--o{ VECTOR_RECORD : chunked_into
+```
+
+## Entity as Class (domain model)
+
+```mermaid
+classDiagram
+    class Conversation {
+        +id: string
+        +userId: string
+        +rootConversationId?: string
+        +lastMessageId?: string
+        +title: string
+        +model?: string
+        +createdAt: Date
+        +updatedAt: Date
+        -messages: Message[]
+        +addMessage(content, role): Message
+        +branchFrom(messageId): Conversation
+        +rename(title): void
+        +latest(): Message|null
+    }
+    class Message {
+        +id: string
+        +conversationId: string
+        +userId: string
+        +parentId?: string
+        +role: "user"|"assistant"|"system"
+        +content: string
+        +model?: string
+        +status: "processing"|"complete"|"stopped"
+        +createdAt: Date
+        +isUser(): boolean
+        +regenerate(): void
+    }
+    class Asset {
+        +id: string
+        +userId: string
+        +conversationId: string
+        +filename: string
+        +mime: string
+        +path: string
+        +createdAt: Date
+    }
+    Conversation "1" *-- "0..*" Message : contains
+    Conversation "1" *-- "0..*" Asset : references
+    Message "0..1" *-- "0..*" Message : "parent of (branch)"
+```
+
+## schema/ partition (entity / cache / vector)
+
+```mermaid
+erDiagram
+    CONVERSATION ||--o{ MESSAGE : has
+    CONVERSATION ||--o{ ASSET : references
+    ASSET ||--o{ VECTOR_RECORD : chunked_into
+    CACHE_ENTRY {
+        string key PK
+        string value
+        int ttl
+        datetime expiresAt
+    }
+    VECTOR_RECORD {
+        uuid id PK
+        uuid assetId FK
+        uuid chunkIndex
+        float embedding
+        text chunkText
+    }
 ```
