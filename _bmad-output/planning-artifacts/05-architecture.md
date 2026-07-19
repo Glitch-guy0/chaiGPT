@@ -1,6 +1,6 @@
-# Architecture Diagram — chaiGPT (Hexagonal / Interfaces & Adapters, v2)
+# Architecture Diagram — chaiGPT (Layered, Next.js + TypeORM, v2)
 
-The domain core is the hub. Inbound adapters (Next controllers, Clerk middleware/guard, interceptors, transformations) drive application services. Outbound adapters (Postgres repository, LangChain AI, Redis cache, Qdrant vector, asset filesystem) implement domain interfaces. `schema/` is the persistence contract layer (entity/cache/vector). Reflects PRD §9 v2 model.
+Tightly integrated with Next.js (App Router, route handlers, middleware) and TypeORM (entities, repositories, migrations). Separation is by concern — routes → services → data/integrations — with **no port/adapter abstraction** to decouple frameworks. Reflects PRD §9 v2 model.
 
 ```mermaid
 flowchart TB
@@ -8,31 +8,26 @@ flowchart TB
         ui["React UI + hooks<br/>(useChat, useConversations)"]
     end
 
-    subgraph inbound["Inbound Adapters (Interfaces)"]
-        ctrl["Controllers<br/>(route handlers)"]
-        mw["Middleware (Clerk)"]
-        grd["Guards (ClerkGuard)"]
-        intc["Interceptors"]
-        trf["Transformations<br/>(DTO <-> Entity)"]
+    subgraph routes["Next.js App Router (src/app)"]
+        ctrl["Route handlers<br/>chat / conversations / assets"]
+        mw["middleware.ts<br/>(Clerk session)"]
     end
 
-    subgraph app["Application Layer (Services)"]
-        svc["ChatService · ConversationService · MessageService · AssetService"]
+    subgraph services["Services (src/services)"]
+        svc["ChatService · ConversationService<br/>MessageService · AssetService"]
     end
 
-    subgraph domain["Domain Core (Pure)"]
+    subgraph data["Data — TypeORM (src/lib/db)"]
         ent["Entities<br/>Conversation · Message · Asset"]
-        interfaces["Interfaces (Contracts)<br/>IConversationRepository · IMessageRepository · IAssetRepository<br/>IAiProvider · ICacheInterface · IVectorInterface · IGuard"]
-        domTypes["Domain Types"]
+        repo["Repositories<br/>Conversation/Message/Asset"]
+        ds["DataSource (Postgres)"]
     end
 
-    subgraph outbound["Outbound Adapters"]
-        repoA["Repository Adapter<br/>(TypeORM + Postgres)"]
-        aiA["AI Adapter<br/>(LangChain)"]
-        cacheA["Cache Adapter<br/>(Redis KV)"]
-        vecA["Vector Adapter<br/>(Qdrant)"]
-        assetA["Asset Adapter<br/>(shared Docker volume)"]
-        plug["Plugins<br/>(AI strategies)"]
+    subgraph integ["Integrations (src/lib)"]
+        ai["ai/langchain.ts<br/>(ChatOpenAI, stream)"]
+        vec["vector/qdrant.ts<br/>(@langchain/qdrant)"]
+        cache["cache/redis.ts<br/>(Redis KV)"]
+        auth["auth/session.ts<br/>(Clerk auth())"]
     end
 
     subgraph persist["schema/ (Persistence Contracts)"]
@@ -42,23 +37,21 @@ flowchart TB
     end
 
     ui -->|HTTP SSE| ctrl
-    ctrl --> mw --> grd --> intc --> trf
-    trf --> svc
-    svc --> interfaces
-    interfaces --> ent
-    svc -.uses.-> repoA
-    svc -.uses.-> aiA
-    svc -.uses.-> cacheA
-    svc -.uses.-> vecA
-    svc -.uses.-> assetA
-    plug -.configures.-> aiA
-    repoA --> se
-    cacheA --> sc
-    vecA --> sv
-    assetA --> vol[(Shared Docker Volume)]
+    mw --> ctrl
+    ctrl --> svc
+    svc --> repo
+    svc --> ai
+    svc --> vec
+    svc --> cache
+    svc --> auth
+    repo --> ent
+    repo --> ds
+    ds --> PG[("Postgres")]
+    vec --> Q[("Qdrant")]
+    cache --> RED[("Redis")]
 
     classDef core fill:#1f2937,stroke:#f59e0b,color:#fff
-    classDef adapter fill:#334155,stroke:#38bdf8,color:#fff
-    class domain core
-    class repoA,aiA,cacheA,vecA,assetA,plug adapter
+    classDef integ fill:#334155,stroke:#38bdf8,color:#fff
+    class data core
+    class ai,vec,cache,auth integ
 ```

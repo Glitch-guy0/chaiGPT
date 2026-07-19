@@ -1,76 +1,90 @@
 # Requirements Diagram — chaiGPT Re-architecture
 
-Captures functional + non-functional requirements and traces them to the planned architecture partitions. Items marked `satisfies` exist today; `verifies` are the new hexagonal goals.
+Captures functional + non-functional requirements and traces them to the planned architecture partitions. Architecture is a layered Next.js + TypeORM structure (tight integration, no port/adapter decoupling).
 
 ```mermaid
 requirementDiagram
-    requirement Existing {
-        id: REQ1
-        text: Store conversations and messages (SQLite via TypeORM)
-        risk: medium
+    functionalRequirement REQ1 {
+        id: 1
+        text: Store conversations and messages via Postgres and TypeORM
+        risk: high
         verifymethod: demonstration
     }
-    requirement Existing {
-        id: REQ2
-        text: Stream chat completions via LangChain (SSE)
-        risk: medium
+    functionalRequirement REQ2 {
+        id: 2
+        text: Stream chat completions via LangChain using SSE
+        risk: high
         verifymethod: demonstration
     }
-    requirement Existing {
-        id: REQ3
+    functionalRequirement REQ3 {
+        id: 3
         text: Validate inbound requests with Zod
         risk: low
         verifymethod: test
     }
-    requirement New {
-        id: REQ4
-        text: Isolate domain from framework (hexagonal, no Next/TypeORM imports in domain)
+    functionalRequirement REQ4 {
+        id: 4
+        text: Layered structure with Next.js routes services and TypeORM repositories
         risk: medium
         verifymethod: inspection
     }
-    requirement New {
-        id: REQ5
-        text: Swap AI provider without touching services (Open/Closed via IAiInterface + plugins)
+    functionalRequirement REQ5 {
+        id: 5
+        text: Swap AI model via the LangChain AiProvider module without rewriting services
         risk: low
         verifymethod: test
     }
-    requirement New {
-        id: REQ6
-        text: Add KV cache + vector store behind interfaces (scalability)
+    functionalRequirement REQ6 {
+        id: 6
+        text: Add KV cache and vector store via Redis and Qdrant for scalability
         risk: high
         verifymethod: demonstration
     }
-    requirement NFR {
-        id: NFR1
-        text: SOLID compliance — single responsibility per layer
+    performanceRequirement NFR1 {
+        id: 7
+        text: SOLID compliance with single responsibility per layer
         risk: medium
         verifymethod: inspection
     }
-    requirement NFR {
-        id: NFR2
-        text: Horizontal scale — stateless controllers, pluggable stores
+    performanceRequirement NFR2 {
+        id: 8
+        text: Horizontal scale with stateless route handlers and externalized stores
         risk: high
         verifymethod: analysis
     }
 
-    element Domain { type: component }
-    element Services { type: component }
-    element Adapters { type: component }
-    element Controllers { type: component }
-    element Schema { type: component }
+    element Routes {
+        type: module
+        docRef: "src/app"
+    }
+    element Services {
+        type: module
+        docRef: "src/services"
+    }
+    element Data {
+        type: module
+        docRef: "src/lib/db"
+    }
+    element Integrations {
+        type: module
+        docRef: "src/lib"
+    }
+    element Schema {
+        type: module
+        docRef: "schema"
+    }
 
-    REQ1 -> Domain
-    REQ1 -> Adapters
-    REQ2 -> Services
-    REQ2 -> Adapters
-    REQ3 -> Controllers
-    REQ4 -> Domain
-    REQ5 -> Adapters
-    REQ6 -> Schema
-    NFR1 -> Services
-    NFR2 -> Controllers
+    Routes - satisfies -> REQ4
+    Services - satisfies -> REQ2
+    Services - satisfies -> NFR1
+    Data - satisfies -> REQ1
+    Integrations - satisfies -> REQ5
+    Integrations - satisfies -> REQ6
+    Routes - satisfies -> REQ3
+    Routes - satisfies -> NFR2
+    Schema - satisfies -> REQ6
 
-    REQ4 verifies REQ1
-    REQ5 verifies REQ2
-    NFR1 satisfies REQ4
+    REQ4 - verifies -> REQ1
+    REQ5 - verifies -> REQ2
+    NFR1 - satisfies -> REQ4
 ```

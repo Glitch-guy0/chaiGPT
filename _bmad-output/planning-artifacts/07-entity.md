@@ -1,6 +1,6 @@
 # Entity Diagram — chaiGPT Persistence Model (v2)
 
-Supersedes the v1 SQLite model. Mirrors the PRD §9 v2 data model and `schema/`: `entity/` (Postgres SQL), `cache/` (KV), `vector/` (Qdrant). Postgres replaces SQLite; Qdrant replaces the generic vector store.
+Mirrors the PRD §9 v2 data model and `schema/`: `entity/` (Postgres SQL via TypeORM), `cache/` (KV), `vector/` (Qdrant). Entities are defined with TypeORM decorators and persisted to Postgres.
 
 ```mermaid
 erDiagram

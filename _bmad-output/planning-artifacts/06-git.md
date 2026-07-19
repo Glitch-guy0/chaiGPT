@@ -1,35 +1,31 @@
 # Git Commit Plan — chaiGPT (main branch only)
 
-Conventional-commit messages for landing the hexagonal re-architecture on `main`, ordered so each step is independently reviewable and the build stays green.
+Conventional-commit messages for landing the re-architecture on `main`, ordered so each step is independently reviewable and the build stays green.
 
 ```mermaid
 gitGraph
     commit id: "init" tag: "v0.0.0"
-    commit id: "feat(domain): add Conversation/Message entities + repository interfaces"
-    commit id: "feat(adapters): TypeORM repository impl + sqlite schema"
-    commit id: "feat(services): ChatService/ConversationService/MessageService"
-    commit id: "refactor(interfaces): route handlers as controllers calling services"
-    commit id: "feat(cross-cutting): middleware, guards, interceptors, transformations"
-    commit id: "feat(ai): LangChain adapter behind IAiProvider interface"
-    commit id: "feat(plugins): AI strategy injection point"
-    commit id: "feat(schema): cache (KV) + vector persistence contracts"
-    commit id: "feat(adapters): cache + vector adapters"
-    commit id: "chore(types): extract shared lib/types and lib/interfaces"
-    commit id: "docs: architecture UML diagrams under docs/architecture"
+    commit id: "feat(db): TypeORM entities + Postgres DataSource (v2: userId/parentId/status/Asset)"
+    commit id: "feat(db): Postgres migrations; retire SQLite"
+    commit id: "feat(services): ChatService/ConversationService/MessageService/AssetService"
+    commit id: "feat(routes): Next.js route handlers delegating to services + Clerk middleware"
+    commit id: "feat(ai): LangChain AiProvider with streaming"
+    commit id: "feat(rag): asset pipeline + Qdrant via @langchain/qdrant"
+    commit id: "feat(cache): Redis KV cache for RAG context reuse"
+    commit id: "chore(types): shared lib/types, utils, validation schemas"
+    commit id: "docs: architecture UML diagrams under planning-artifacts"
 ```
 
 ## Commit message table
 
 | # | Scope | Type | Message |
 |---|-------|------|---------|
-| 1 | domain | feat | add Conversation/Message entities and repository interfaces |
-| 2 | adapters | feat | implement TypeORM repository adapter + SQLite schema |
-| 3 | services | feat | add Chat/Conversation/Message application services |
-| 4 | interfaces | refactor | route handlers as controllers delegating to services |
-| 5 | cross-cutting | feat | add middleware, guards, interceptors, transformations |
-| 6 | ai | feat | LangChain adapter behind IAiProvider interface |
-| 7 | plugins | feat | AI strategy injection point |
-| 8 | schema | feat | add cache (KV) and vector persistence contracts |
-| 9 | adapters | feat | implement cache and vector adapters |
-| 10 | types | chore | extract shared lib/types and lib/interfaces |
-| 11 | docs | docs | add architecture UML diagrams to docs/architecture |
+| 1 | db | feat | TypeORM entities + Postgres DataSource (v2) |
+| 2 | db | feat | Postgres migrations; retire SQLite |
+| 3 | services | feat | Chat/Conversation/Message/Asset services |
+| 4 | routes | feat | Next.js route handlers + Clerk middleware |
+| 5 | ai | feat | LangChain AiProvider with streaming |
+| 6 | rag | feat | asset pipeline + Qdrant via @langchain/qdrant |
+| 7 | cache | feat | Redis KV cache for RAG context reuse |
+| 8 | types | chore | shared lib/types, utils, validation schemas |
+| 9 | docs | docs | architecture UML diagrams |

@@ -14,9 +14,9 @@ based_on:
 
 chaiGPT is a context-aware conversational AI platform. Today it is a flat Next.js 16 chat app: a sidebar conversation list, SQLite persistence via TypeORM (`Conversation`, `Message`), and streaming LLM responses via LangChain. There is no auth, no branching, no document retrieval, and no asset handling.
 
-The brief defines a target where **authenticated users** hold branching conversations, upload documents for retrieval-augmented generation (RAG), and keep persistent, account-scoped history. The architecture artifacts define a **hexagonal (interfaces & adapters)** re-organization so the domain stays framework-free, stores are swappable, and the system scales horizontally.
+The brief defines a target where **authenticated users** hold branching conversations, upload documents for retrieval-augmented generation (RAG), and keep persistent, account-scoped history. The architecture is a **layered structure tightly integrated with Next.js (App Router, route handlers, middleware) and TypeORM (entities, migrations, repositories)** — separation by concern, not framework isolation. Coupling to Next.js and TypeORM is approved and intentional.
 
-This PRD reconciles the brief's target state with the planned hexagonal architecture. Where the brief implies new entities/flows not yet in the UML, they are captured here as new requirements and flagged for a follow-up architecture update.
+This PRD reconciles the brief's target state with the planned architecture. Where the brief implies new entities/flows not yet in the UML, they are captured here as new requirements and flagged for a follow-up architecture update.
 
 ## 2. Goals
 
@@ -24,7 +24,7 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 - **G2** — Branching conversations with sibling-thread sidebar behavior.
 - **G3** — Document upload → embed → retrieve (RAG) via Qdrant.
 - **G4** — Asset lifecycle (upload, embed, reference, explicit delete) on a named Docker volume.
-- **G5** — Hexagonal architecture: pure domain, swappable adapters, SOLID, horizontally scalable.
+- **G5** — Layered architecture tightly integrated with Next.js + TypeORM: clean separation by concern (routes, services, entities, repositories), no artificial framework-decoupling layer.
 - **G6** — Production-grade infra (Postgres + Qdrant via Docker Compose, dev/prod scripts).
 
 ## 3. Non-Goals (Out of Scope, v1)
@@ -38,7 +38,7 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 
 - **End User** — wants private, branching, document-aware chats.
 - **Platform Engineer** — owns Docker/infra, DB migrations, scaling.
-- **Maintainer** — owns the hexagonal codebase, adapter swaps, tests.
+- **Maintainer** — owns the Next.js + TypeORM codebase, services, and tests.
 
 ## 5. User Stories
 
@@ -53,13 +53,13 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 | US-7 | user | edit my latest user message | I can correct a typo without a new branch |
 | US-8 | user | see pasted/long content become a `.txt` asset | I stay within the 500-char limit |
 | US-9 | user | have assets preserved in deleted replies | history stays coherent |
-| US-10 | maintainer | swap AI provider via a plugin | I follow Open/Closed without touching services |
+| US-10 | maintainer | swap AI model/provider via the AiProvider module | I keep services unchanged |
 | US-11 | maintainer | run dev/prod stacks via npm scripts | I reproduce envs consistently |
 
 ## 6. Functional Requirements
 
 ### 6.1 Authentication & Scoping
-- **FR-1 [Must]** Integrate Clerk (`@clerk/nextjs`); middleware protects routes, API routes verify session (`IGuard` interface).
+- **FR-1 [Must]** Integrate Clerk (`@clerk/nextjs`); Next.js middleware protects routes and route handlers read the session via `auth()` from `@clerk/nextjs/server`.
 - **FR-2 [Must]** All conversations and messages are scoped to `userId` (Clerk `sub`).
 - **FR-3 [Must]** Unauthenticated requests to protected routes return 401 / redirect.
 
@@ -78,7 +78,7 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 ### 6.4 Retrieval-Augmented Generation
 - **FR-12 [Must]** Asset upload stages to a **shared named Docker volume**, embeds via LangChain, deletes original; no external object store in v1. Logical user isolation is enforced at the DB layer (`Asset.userId`), not at the volume level.
 - **FR-13 [Must]** PDFs chunked page-by-page; TXT/MD chunked at 2000 characters (LangChain splitters).
-- **FR-14 [Must]** Qdrant stores **one embedding per chunk**; top-3 segments retrieved per query, scoped to the **current conversation's** linked assets (`IVectorInterface` → `VectorStoreAdapter` via `@langchain/qdrant`). Each vector record references its parent chunk + asset for citation.
+- **FR-14 [Must]** Qdrant stores **one embedding per chunk**; top-3 segments retrieved per query, scoped to the **current conversation's** linked assets via `@langchain/qdrant`. Each vector record references its parent chunk + asset for citation.
 - **FR-15 [Must]** Retrieved context is injected into the prompt before completion.
 
 ### 6.5 Asset Lifecycle
@@ -91,41 +91,41 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 - **FR-20 [Must]** Inbound requests validated with Zod (`ChatRequestSchema`, `ConversationSchema`, etc.).
 
 ### 6.7 Architecture & Extensibility
-- **FR-21 [Must]** Domain core has zero Next/TypeORM imports; persistence/AI behind interfaces (`IConversationRepository`, `IMessageRepository`, `IAiProvider`, `ICacheInterface`, `IVectorInterface`).
-- **FR-22 [Should]** AI provider swappable via plugins (`IAiStrategy`, e.g. `Gpt4oMiniStrategy`) — Open/Closed.
-- **FR-23 [Should]** Cross-cutting concerns isolated as interfaces: `IGuard`, `IInterceptor`, `ITransform`.
+- **FR-21 [Must]** Tightly integrated layered architecture: Next.js App Router route handlers are the entry point; services hold use-case logic; TypeORM entities + repositories own persistence (Postgres). No framework-decoupling abstraction layer is required — coupling to Next.js and TypeORM is approved.
+- **FR-22 [Should]** AI provider kept behind a thin `AiProvider` module (LangChain) so the model can be swapped without rewriting services; not a hard port boundary.
+- **FR-23 [Should]** Cross-cutting concerns (Clerk auth, logging) handled by Next.js middleware / route-handler helpers rather than a separate interceptor framework.
 
 ## 7. Non-Functional Requirements
 
 | ID | Requirement | Target |
 |----|-------------|--------|
 | NFR-1 | SOLID / single-responsibility per layer | Inspection |
-| NFR-2 | Horizontal scale — stateless controllers, pluggable stores | Analysis |
+| NFR-2 | Horizontal scale — stateless route handlers, externalized stores (Postgres/Qdrant/Redis) | Analysis |
 | NFR-3 | Auth latency overhead | < 50 ms per request (p95) |
 | NFR-4 | RAG retrieval latency | < 300 ms (p95) for top-3 |
 | NFR-5 | Streaming time-to-first-token | < 1 s |
 | NFR-6 | DB migrations are reversible (TypeORM) | Required for prod |
-| NFR-7 | Test coverage of services + interfaces | ≥ 80% |
+| NFR-7 | Test coverage of services + repositories | ≥ 80% |
 
 ## 8. Architecture Alignment (from UML artifacts)
 
-The hexagonal plan (`05-architecture.md`) maps directly to requirements:
-- **Inbound adapters** — controllers (route handlers), middleware, guards, interceptors, transformations. → FR-1, FR-20, FR-23.
-- **Application** — `ChatService`, `ConversationService`, `MessageService`. → FR-6, FR-8.
-- **Domain** — `Conversation`, `Message` entities + interfaces. → FR-21.
-- **Outbound adapters** — TypeORM (Postgres), LangChain AI, cache (KV), vector (Qdrant), plugins. → FR-14, FR-22.
-- **schema/** — `entity/` (SQL), `cache/` (KV), `vector/`. → FR-21.
+The layered plan (`05-architecture.md`) maps directly to requirements:
+- **Routes (Next.js App Router)** — route handlers, Clerk middleware. → FR-1, FR-20.
+- **Services** — `ChatService`, `ConversationService`, `MessageService`, `AssetService` (use-case logic). → FR-6, FR-8.
+- **Entities + Repositories (TypeORM)** — `Conversation`, `Message`, `Asset` entities; TypeORM repositories for Postgres. → FR-21.
+- **Integrations** — LangChain AI, Qdrant vector store, KV cache, asset filesystem. → FR-14, FR-22.
+- **schema/** — `entity/` (SQL migrations), `cache/` (KV), `vector/` (Qdrant). → FR-21.
 
 ### 8.1 Gaps between Brief and current UML (action required)
-The UML was authored against the *current* SQLite/LangChain code and does **not** yet show:
+The UML still carries the old hexagonal port/adapter wording and must be simplified to the tightly-integrated Next.js + TypeORM model:
 1. `User` linkage / `userId` scoping on entities (FR-2).
 2. `parentId`, `rootConversationId`, `lastMessageId`, `status` on `Message`/`Conversation` (FR-4, FR-5).
 3. `Asset` entity and its lifecycle (FR-12, FR-16).
-4. Qdrant as the concrete vector adapter (UML says generic `VectorStoreAdapter`).
-5. Postgres migration from SQLite (brief decision #1).
-6. Clerk guard as concrete `IGuard` impl.
+4. Qdrant used directly via `@langchain/qdrant` (no generic adapter indirection).
+5. Postgres via TypeORM migrations from SQLite (brief decision #1).
+6. Clerk auth via Next.js middleware + `auth()` in route handlers (no separate `IGuard` port).
 
-> **Decision needed:** update `02-class.md`, `05-architecture.md`, `07-entity.md`, `03-sequence.md` to reflect v2 entities, Asset, Qdrant, and Clerk before implementation begins.
+> **Decision needed:** update `01-package.md`, `02-class.md`, `05-architecture.md`, `07-entity.md`, `03-sequence.md` to reflect the integrated Next.js + TypeORM model (drop `I*Interface` ports, `adapters/`, `plugins/`).
 
 ## 9. Data Model (v2 — supersedes current entities)
 
@@ -187,16 +187,15 @@ erDiagram
 
 ## 12. Migration / Build Sequence (from `06-git.md`)
 
-1. Domain entities + interfaces (v2 with userId/parentId/status/Asset).
-2. Postgres repository adapters + migrations; retire SQLite.
-3. Application services (chat/conversation/message) with branching + status.
-4. Controllers as route handlers delegating to services.
-5. Cross-cutting: Clerk middleware/guard, interceptors, transformations.
-6. LangChain AI adapter behind `IAiProvider` + plugin strategies.
-7. Asset pipeline + Qdrant vector adapter (`IVectorInterface`).
-8. KV cache adapter (`ICacheInterface`).
-9. Shared `lib/types`, `lib/interfaces`.
-10. Update UML artifacts to v2, then docs.
+1. TypeORM entities (v2 with userId/parentId/status/Asset) + Postgres DataSource.
+2. TypeORM migrations; retire SQLite.
+3. Services (chat/conversation/message/asset) with branching + status.
+4. Next.js route handlers delegating to services; Clerk middleware.
+5. LangChain `AiProvider` module.
+6. Asset pipeline + Qdrant via `@langchain/qdrant`.
+7. KV cache module.
+8. Shared `lib/types`, `lib/utils`.
+9. Update UML artifacts to the integrated model, then docs.
 
 ## 13. Resolved Decisions (formerly Open Questions)
 

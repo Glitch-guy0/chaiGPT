@@ -4,6 +4,8 @@ prd: prds/prd-chaiGPT-2026-07-15/prd.md
 validated: 2026-07-19
 validated_by: bmad-prd (validate intent)
 result: PASS
+updated: 2026-07-19
+update_note: "MAJOR UPDATE — architecture shifted from hexagonal (ports/adapters, framework-free domain) to a tightly-integrated Next.js + TypeORM layered model. Coupling to Next.js and TypeORM is now approved. All UML artifacts (01/02/03/05/06/07/09) and PRD FR-21..FR-23, G5, §8, §12 reconciled. Re-validation still PASS; no open blockers introduced."
 ---
 
 # Validation Report — chaiGPT PRD
