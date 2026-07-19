@@ -5,12 +5,12 @@ import { Message } from "./entities/message.entity"
 import { Asset } from "./entities/asset.entity"
 
 export const AppDataSource = new DataSource({
-  type: "sqlite",
-  database: "./chaiGPT.db",
-  synchronize: true,
+  type: "postgres",
+  url: process.env.DATABASE_URL,
+  synchronize: false,
   logging: false,
   entities: [Conversation, Message, Asset],
-  migrations: [],
+  migrations: ["src/migrations/*.ts"],
 })
 
 export async function initializeDatabase() {
@@ -28,3 +28,11 @@ export async function getDatabase() {
   }
   return AppDataSource
 }
+
+export { Conversation } from "./entities/conversation.entity"
+export { Message } from "./entities/message.entity"
+export { Asset } from "./entities/asset.entity"
+
+export type { ConversationRepository, ConversationStatus } from "./repositories/conversation.repository"
+export type { MessageRepository } from "./repositories/message.repository"
+export type { AssetRepository } from "./repositories/asset.repository"
