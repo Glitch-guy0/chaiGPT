@@ -1,5 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai"
 import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages"
+import type { DynamicTool } from "@langchain/core/tools"
+import type { Runnable } from "@langchain/core/runnables"
+import type { BaseLanguageModelInput } from "@langchain/core/language_models/base"
+import type { AIMessageChunk } from "@langchain/core/messages"
 import type { AiProvider } from "./provider"
 import type { Message } from "@/lib/validation/schemas"
 
@@ -19,6 +23,8 @@ function toLangChainMessages(messages: Message[]) {
 
 export class LangChainAiProvider implements AiProvider {
   private chat: ChatOpenAI
+  private boundChat: Runnable<BaseLanguageModelInput, AIMessageChunk> | null =
+    null
 
   constructor(modelName?: string) {
     this.chat = new ChatOpenAI({
@@ -28,9 +34,24 @@ export class LangChainAiProvider implements AiProvider {
     })
   }
 
-  async complete(messages: Message[]): Promise<string> {
+  bindTools(tools: DynamicTool[]): void {
+    this.boundChat = this.chat.bindTools(tools)
+  }
+
+  private invokeChat(messages: Message[]) {
     const langchainMessages = toLangChainMessages(messages)
-    const response = await this.chat.invoke(langchainMessages)
+    const target = this.boundChat ?? this.chat
+    return target.invoke(langchainMessages)
+  }
+
+  private streamChatTarget(messages: Message[]) {
+    const langchainMessages = toLangChainMessages(messages)
+    const target = this.boundChat ?? this.chat
+    return target.stream(langchainMessages)
+  }
+
+  async complete(messages: Message[]): Promise<string> {
+    const response = await this.invokeChat(messages)
     return response.content as string
   }
 
@@ -38,8 +59,7 @@ export class LangChainAiProvider implements AiProvider {
     messages: Message[],
     onChunk: (chunk: string) => void
   ): Promise<void> {
-    const langchainMessages = toLangChainMessages(messages)
-    const stream = await this.chat.stream(langchainMessages)
+    const stream = await this.streamChatTarget(messages)
 
     for await (const chunk of stream) {
       const content = chunk.content as string
@@ -50,8 +70,7 @@ export class LangChainAiProvider implements AiProvider {
   async *streamChatGen(
     messages: Message[]
   ): AsyncGenerator<string, void, unknown> {
-    const langchainMessages = toLangChainMessages(messages)
-    const stream = await this.chat.stream(langchainMessages)
+    const stream = await this.streamChatTarget(messages)
 
     for await (const chunk of stream) {
       yield chunk.content as string

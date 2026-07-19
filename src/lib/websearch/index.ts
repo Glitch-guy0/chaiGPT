@@ -1,3 +1,5 @@
 export type { WebSearchProvider, WebSearchResult } from "./provider"
 export type { WebSearchTool } from "./tool"
+export { WebSearchToolImpl } from "./tool"
+export { createWebSearchLangChainTool } from "./langchain-tool"
 export { JinaProvider } from "./jina"
