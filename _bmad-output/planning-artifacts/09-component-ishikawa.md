@@ -11,7 +11,7 @@ flowchart LR
     subgraph bones[""]
         direction TB
         B1["Domain & Types"] -->|entities, types, lib/types| EFF
-        B2["Ports / Interfaces"] -->|interfaces, lib/interfaces, repository ports| EFF
+        B2["Interfaces"] -->|interfaces, lib/interfaces, repository interfaces| EFF
         B3["Application"] -->|services| EFF
         B4["Inbound"] -->|controllers, middleware, guards, interceptors, transformations| EFF
         B5["Outbound Adapters"] -->|repository, ai, cache, vector, plugins| EFF
@@ -19,7 +19,7 @@ flowchart LR
     end
 
     B1 -->|risk: anemic domain| R1["No behavior on entities"]
-    B2 -->|risk: leaky ports| R2["Adapters import framework into domain"]
+    B2 -->|risk: leaky interfaces| R2["Adapters import framework into domain"]
     B3 -->|risk: fat services| R3["Service does repo + AI + HTTP"]
     B4 -->|gap: no auth| R4["Guards/interceptors thin until auth lands"]
     B5 -->|risk: tight coupling| R5["Service imports LangChain directly"]
@@ -33,12 +33,12 @@ flowchart LR
 
 ## Component grouping (concern × type)
 
-| Concern | Class | Interface/Port | Schema |
-|---------|-------|----------------|--------|
+| Concern | Class | Interface | Schema |
+|---------|-------|----------|--------|
 | Domain | Conversation, Message | — | — |
 | Persistence | TypeOrmConversationRepository, TypeOrmMessageRepository | IConversationRepository, IMessageRepository | entity/ (SQL) |
 | AI | LangChainAiProvider | IAiProvider, IAiStrategy | — |
-| Caching | SqliteCacheAdapter | ICachePort | cache/ (KV) |
-| Retrieval | VectorStoreAdapter | IVectorPort | vector/ |
+| Caching | SqliteCacheAdapter | ICacheInterface | cache/ (KV) |
+| Retrieval | VectorStoreAdapter | IVectorInterface | vector/ |
 | Delivery | ChatController, ConversationController | IGuard, IInterceptor, ITransform | — |
 | Strategy | Gpt4oMiniStrategy | — | — |

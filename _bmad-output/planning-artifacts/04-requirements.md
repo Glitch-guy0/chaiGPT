@@ -30,13 +30,13 @@ requirementDiagram
     }
     requirement New {
         id: REQ5
-        text: Swap AI provider without touching services (Open/Closed via IAiPort + plugins)
+        text: Swap AI provider without touching services (Open/Closed via IAiInterface + plugins)
         risk: low
         verifymethod: test
     }
     requirement New {
         id: REQ6
-        text: Add KV cache + vector store behind ports (scalability)
+        text: Add KV cache + vector store behind interfaces (scalability)
         risk: high
         verifymethod: demonstration
     }

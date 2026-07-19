@@ -1,6 +1,6 @@
-# Architecture Diagram — chaiGPT (Hexagonal / Ports & Adapters, v2)
+# Architecture Diagram — chaiGPT (Hexagonal / Interfaces & Adapters, v2)
 
-The domain core is the hub. Inbound adapters (Next controllers, Clerk middleware/guard, interceptors, transformations) drive application services. Outbound adapters (Postgres repository, LangChain AI, Redis cache, Qdrant vector, asset filesystem) implement domain ports. `schema/` is the persistence contract layer (entity/cache/vector). Reflects PRD §9 v2 model.
+The domain core is the hub. Inbound adapters (Next controllers, Clerk middleware/guard, interceptors, transformations) drive application services. Outbound adapters (Postgres repository, LangChain AI, Redis cache, Qdrant vector, asset filesystem) implement domain interfaces. `schema/` is the persistence contract layer (entity/cache/vector). Reflects PRD §9 v2 model.
 
 ```mermaid
 flowchart TB
@@ -22,7 +22,7 @@ flowchart TB
 
     subgraph domain["Domain Core (Pure)"]
         ent["Entities<br/>Conversation · Message · Asset"]
-        ports["Ports (Interfaces)<br/>IConversationRepository · IMessageRepository · IAssetRepository<br/>IAiProvider · ICachePort · IVectorPort · IGuard"]
+        interfaces["Interfaces (Contracts)<br/>IConversationRepository · IMessageRepository · IAssetRepository<br/>IAiProvider · ICacheInterface · IVectorInterface · IGuard"]
         domTypes["Domain Types"]
     end
 
@@ -44,8 +44,8 @@ flowchart TB
     ui -->|HTTP SSE| ctrl
     ctrl --> mw --> grd --> intc --> trf
     trf --> svc
-    svc --> ports
-    ports --> ent
+    svc --> interfaces
+    interfaces --> ent
     svc -.uses.-> repoA
     svc -.uses.-> aiA
     svc -.uses.-> cacheA

@@ -1,8 +1,10 @@
 # Sequence Diagrams — chaiGPT (by Separation of Concern, v2)
 
-One diagram per primary flow. Each shows the full hexagonal traversal: inbound controller → Clerk guard → application service → domain port → adapter → framework. Reflects PRD §9 v2 model.
+One diagram per primary flow. Each shows the full hexagonal traversal: inbound controller → Clerk guard → application service → domain interface → adapter → framework. Reflects PRD §9 v2 model.
 
 ## 1) Send Chat Message (SSE stream, per-conversation RAG)
+
+Two consumers of the LLM stream: **(a)** each token is forwarded to the client as an SSE chunk immediately, **(b)** tokens are accumulated server-side into a local buffer, then persisted to DB once the stream completes.
 
 ```mermaid
 sequenceDiagram
@@ -12,7 +14,7 @@ sequenceDiagram
     participant S as ChatService
     participant CR as IConversationRepository
     participant MR as IMessageRepository
-    participant VEC as IVectorPort (Qdrant)
+    participant VEC as IVectorInterface (Qdrant)
     participant AI as IAiProvider (LangChain)
     participant DB as Postgres (TypeORM)
 
@@ -28,13 +30,23 @@ sequenceDiagram
     MR->>DB: INSERT message
     S->>VEC: search(embed(lastUser), conversationId, k=3)
     VEC-->>S: Hit[] (per-conversation chunks)
-    S->>AI: complete(messages + retrievedContext)
-    AI-->>S: assistantContent
-    S->>MR: append(assistant, status:complete)
-    MR->>DB: INSERT message
-    S-->>C: ChatResponse (SSE: data / [DONE])
-    C-->>User: text/event-stream
+
+    S->>AI: streamChat(messages + retrievedContext)
+    loop for each token (chunk)
+        AI-->>S: token (chunk)
+        S->>S: append token to local streamBuffer
+        S-->>C: SSE data: {chunk}        %% live to client
+        C-->>User: text/event-stream (token)
+    end
+    AI-->>S: stream done
+
+    S->>MR: append(assistant, fullContent=streamBuffer, status:complete)
+    MR->>DB: INSERT assistant message
+    S-->>C: SSE data: [DONE]
+    C-->>User: text/event-stream (end)
 ```
+
+> **Stream handling:** `streamBuffer` is an in-memory accumulator in `ChatService` (or the controller) holding the full assistant text. The client receives tokens progressively; only after the stream closes does the assembled `streamBuffer` get written to the `Message` repository (`status: complete`). If the user terminates early, the buffer is flushed with `status: stopped` and content `"user terminated the response"`.
 
 ## 2) Branch from Assistant Message
 
@@ -94,7 +106,7 @@ sequenceDiagram
     participant G as ClerkGuard
     participant AS as AssetService
     participant AR as IAssetRepository
-    participant VEC as IVectorPort (Qdrant)
+    participant VEC as IVectorInterface (Qdrant)
     participant VOL as Shared Docker Volume
 
     User->>AC: POST /api/assets (file)
@@ -114,6 +126,8 @@ sequenceDiagram
 
 ## 5) Regenerate a Stopped Message (re-run, same ID)
 
+Same streaming behavior as #1: tokens stream live to the client and accumulate in a server-side buffer; the assembled content overwrites the same message ID after the stream ends.
+
 ```mermaid
 sequenceDiagram
     actor User
@@ -128,11 +142,17 @@ sequenceDiagram
     G-->>C: true
     C->>S: regenerate(messageId, userId)
     S->>MR: updateStatus(messageId, processing)
-    S->>AI: complete(history)
-    AI-->>S: newContent
-    S->>MR: update content + status:complete (same id)
-    S-->>C: ChatResponse
-    C-->>User: 200 JSON
+    S->>AI: streamChat(history)
+    loop for each token (chunk)
+        AI-->>S: token (chunk)
+        S->>S: append token to local streamBuffer
+        S-->>C: SSE data: {chunk}
+        C-->>User: text/event-stream (token)
+    end
+    AI-->>S: stream done
+    S->>MR: update content=streamBuffer + status:complete (same id)
+    S-->>C: SSE data: [DONE]
+    C-->>User: text/event-stream (end)
 ```
 
 ## 6) Cache + Vector (RAG context reuse)
@@ -140,8 +160,8 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant S as ChatService
-    participant VEC as IVectorPort
-    participant CACHE as ICachePort
+    participant VEC as IVectorInterface
+    participant CACHE as ICacheInterface
     participant AI as IAiProvider
 
     S->>CACHE: get("ctx:"+conversationId)

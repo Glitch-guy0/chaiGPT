@@ -5,12 +5,12 @@ Conventional-commit messages for landing the hexagonal re-architecture on `main`
 ```mermaid
 gitGraph
     commit id: "init" tag: "v0.0.0"
-    commit id: "feat(domain): add Conversation/Message entities + repository ports"
+    commit id: "feat(domain): add Conversation/Message entities + repository interfaces"
     commit id: "feat(adapters): TypeORM repository impl + sqlite schema"
     commit id: "feat(services): ChatService/ConversationService/MessageService"
     commit id: "refactor(interfaces): route handlers as controllers calling services"
     commit id: "feat(cross-cutting): middleware, guards, interceptors, transformations"
-    commit id: "feat(ai): LangChain adapter behind IAiProvider port"
+    commit id: "feat(ai): LangChain adapter behind IAiProvider interface"
     commit id: "feat(plugins): AI strategy injection point"
     commit id: "feat(schema): cache (KV) + vector persistence contracts"
     commit id: "feat(adapters): cache + vector adapters"
@@ -22,12 +22,12 @@ gitGraph
 
 | # | Scope | Type | Message |
 |---|-------|------|---------|
-| 1 | domain | feat | add Conversation/Message entities and repository ports |
+| 1 | domain | feat | add Conversation/Message entities and repository interfaces |
 | 2 | adapters | feat | implement TypeORM repository adapter + SQLite schema |
 | 3 | services | feat | add Chat/Conversation/Message application services |
 | 4 | interfaces | refactor | route handlers as controllers delegating to services |
 | 5 | cross-cutting | feat | add middleware, guards, interceptors, transformations |
-| 6 | ai | feat | LangChain adapter behind IAiProvider port |
+| 6 | ai | feat | LangChain adapter behind IAiProvider interface |
 | 7 | plugins | feat | AI strategy injection point |
 | 8 | schema | feat | add cache (KV) and vector persistence contracts |
 | 9 | adapters | feat | implement cache and vector adapters |

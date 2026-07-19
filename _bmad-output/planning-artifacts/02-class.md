@@ -1,6 +1,6 @@
 # Class Diagram — chaiGPT (by Separation of Concern, v2)
 
-Two views: **(A) Concrete classes** grouped by layer, **(B) Interfaces + Types** (the ports/contracts) grouped by layer. The dependency rule: outer layers reference inner layers only through interfaces. Reflects the PRD §9 v2 model (auth, branching, assets, Postgres, Qdrant).
+Two views: **(A) Concrete classes** grouped by layer, **(B) Interfaces + Types** (the interfaces/contracts) grouped by layer. The dependency rule: outer layers reference inner layers only through interfaces. Reflects the PRD §9 v2 model (auth, branching, assets, Postgres, Qdrant).
 
 ## A) Concrete Classes
 
@@ -46,8 +46,8 @@ classDiagram
         -convRepo: IConversationRepository
         -msgRepo: IMessageRepository
         -ai: IAiProvider
-        -vector: IVectorPort
-        -cache: ICachePort
+        -vector: IVectorInterface
+        -cache: ICacheInterface
         +send(req): Promise~ChatResponse~
         +stream(req, onChunk)
         +regenerate(messageId)
@@ -67,7 +67,7 @@ classDiagram
     }
     class AssetService {
         -assetRepo: IAssetRepository
-        -vector: IVectorPort
+        -vector: IVectorInterface
         +ingest(userId, convId, file): Promise~Asset~
         +remove(assetId, userId)
     }
@@ -138,19 +138,19 @@ classDiagram
     ConversationService --> Conversation
     MessageService --> Message
     AssetService --> Asset
-    ChatService ..> PostgresConversationRepository : via port
-    ChatService ..> PostgresMessageRepository : via port
-    ChatService ..> LangChainAiProvider : via port
-    ChatService ..> QdrantVectorAdapter : via port
-    ChatService ..> RedisCacheAdapter : via port
-    AssetService ..> PostgresAssetRepository : via port
-    AssetService ..> QdrantVectorAdapter : via port
+    ChatService ..> PostgresConversationRepository : via interface
+    ChatService ..> PostgresMessageRepository : via interface
+    ChatService ..> LangChainAiProvider : via interface
+    ChatService ..> QdrantVectorAdapter : via interface
+    ChatService ..> RedisCacheAdapter : via interface
+    AssetService ..> PostgresAssetRepository : via interface
+    AssetService ..> QdrantVectorAdapter : via interface
     PostgresConversationRepository ..|> IConversationRepository
     PostgresMessageRepository ..|> IMessageRepository
     PostgresAssetRepository ..|> IAssetRepository
     LangChainAiProvider ..|> IAiProvider
-    QdrantVectorAdapter ..|> IVectorPort
-    RedisCacheAdapter ..|> ICachePort
+    QdrantVectorAdapter ..|> IVectorInterface
+    RedisCacheAdapter ..|> ICacheInterface
     ClerkGuard ..|> IGuard
     Gpt4oMiniStrategy ..|> IAiStrategy
     ChatController --> ChatService
@@ -159,11 +159,11 @@ classDiagram
     ChatController --> ClerkGuard
 ```
 
-## B) Interfaces & Types (Ports + Contracts)
+## B) Interfaces & Types (Interfaces + Contracts)
 
 ```mermaid
 classDiagram
-    %% Repository ports (domain interfaces)
+    %% Repository interfaces (domain contracts)
     class IConversationRepository {
         <<interface>>
         +findById(id, userId): Promise~Conversation|null~
@@ -183,7 +183,7 @@ classDiagram
         +findByConversation(cid): Promise~Asset[]~
         +delete(id): Promise~void~
     }
-    %% AI port + strategy
+    %% AI interface + strategy
     class IAiProvider {
         <<interface>>
         +complete(msgs): Promise~string~
@@ -194,19 +194,19 @@ classDiagram
         +modelName: string
         +build(messages): LangChainMessage[]
     }
-    %% Cache / vector ports
-    class ICachePort {
+    %% Cache / vector interfaces
+    class ICacheInterface {
         <<interface>>
         +get(k): Promise~string|null~
         +set(k, v, ttl): Promise~void~
     }
-    class IVectorPort {
+    class IVectorInterface {
         <<interface>>
         +embed(text): Promise~number[]~
         +search(vec, convId, k): Promise~Hit[]~
         +upsertChunks(assetId, chunks): Promise~void~
     }
-    %% Cross-cutting ports
+    %% Cross-cutting interfaces
     class IGuard {
         <<interface>>
         +canActivate(ctx): Promise~boolean~
@@ -245,7 +245,7 @@ classDiagram
     IAssetRepository <|.. PostgresAssetRepository
     IAiProvider <|.. LangChainAiProvider
     IAiStrategy <|.. Gpt4oMiniStrategy
-    ICachePort <|.. RedisCacheAdapter
-    IVectorPort <|.. QdrantVectorAdapter
+    ICacheInterface <|.. RedisCacheAdapter
+    IVectorInterface <|.. QdrantVectorAdapter
     IGuard <|.. ClerkGuard
 ```

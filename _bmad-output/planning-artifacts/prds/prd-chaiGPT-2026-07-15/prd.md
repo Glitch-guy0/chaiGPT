@@ -14,7 +14,7 @@ based_on:
 
 chaiGPT is a context-aware conversational AI platform. Today it is a flat Next.js 16 chat app: a sidebar conversation list, SQLite persistence via TypeORM (`Conversation`, `Message`), and streaming LLM responses via LangChain. There is no auth, no branching, no document retrieval, and no asset handling.
 
-The brief defines a target where **authenticated users** hold branching conversations, upload documents for retrieval-augmented generation (RAG), and keep persistent, account-scoped history. The architecture artifacts define a **hexagonal (ports & adapters)** re-organization so the domain stays framework-free, stores are swappable, and the system scales horizontally.
+The brief defines a target where **authenticated users** hold branching conversations, upload documents for retrieval-augmented generation (RAG), and keep persistent, account-scoped history. The architecture artifacts define a **hexagonal (interfaces & adapters)** re-organization so the domain stays framework-free, stores are swappable, and the system scales horizontally.
 
 This PRD reconciles the brief's target state with the planned hexagonal architecture. Where the brief implies new entities/flows not yet in the UML, they are captured here as new requirements and flagged for a follow-up architecture update.
 
@@ -59,7 +59,7 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 ## 6. Functional Requirements
 
 ### 6.1 Authentication & Scoping
-- **FR-1 [Must]** Integrate Clerk (`@clerk/nextjs`); middleware protects routes, API routes verify session (`IGuard` port).
+- **FR-1 [Must]** Integrate Clerk (`@clerk/nextjs`); middleware protects routes, API routes verify session (`IGuard` interface).
 - **FR-2 [Must]** All conversations and messages are scoped to `userId` (Clerk `sub`).
 - **FR-3 [Must]** Unauthenticated requests to protected routes return 401 / redirect.
 
@@ -78,7 +78,7 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 ### 6.4 Retrieval-Augmented Generation
 - **FR-12 [Must]** Asset upload stages to a **shared named Docker volume**, embeds via LangChain, deletes original; no external object store in v1. Logical user isolation is enforced at the DB layer (`Asset.userId`), not at the volume level.
 - **FR-13 [Must]** PDFs chunked page-by-page; TXT/MD chunked at 2000 characters (LangChain splitters).
-- **FR-14 [Must]** Qdrant stores **one embedding per chunk**; top-3 segments retrieved per query, scoped to the **current conversation's** linked assets (`IVectorPort` → `VectorStoreAdapter` via `@langchain/qdrant`). Each vector record references its parent chunk + asset for citation.
+- **FR-14 [Must]** Qdrant stores **one embedding per chunk**; top-3 segments retrieved per query, scoped to the **current conversation's** linked assets (`IVectorInterface` → `VectorStoreAdapter` via `@langchain/qdrant`). Each vector record references its parent chunk + asset for citation.
 - **FR-15 [Must]** Retrieved context is injected into the prompt before completion.
 
 ### 6.5 Asset Lifecycle
@@ -91,9 +91,9 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 - **FR-20 [Must]** Inbound requests validated with Zod (`ChatRequestSchema`, `ConversationSchema`, etc.).
 
 ### 6.7 Architecture & Extensibility
-- **FR-21 [Must]** Domain core has zero Next/TypeORM imports; persistence/AI behind ports (`IConversationRepository`, `IMessageRepository`, `IAiProvider`, `ICachePort`, `IVectorPort`).
+- **FR-21 [Must]** Domain core has zero Next/TypeORM imports; persistence/AI behind interfaces (`IConversationRepository`, `IMessageRepository`, `IAiProvider`, `ICacheInterface`, `IVectorInterface`).
 - **FR-22 [Should]** AI provider swappable via plugins (`IAiStrategy`, e.g. `Gpt4oMiniStrategy`) — Open/Closed.
-- **FR-23 [Should]** Cross-cutting concerns isolated as ports: `IGuard`, `IInterceptor`, `ITransform`.
+- **FR-23 [Should]** Cross-cutting concerns isolated as interfaces: `IGuard`, `IInterceptor`, `ITransform`.
 
 ## 7. Non-Functional Requirements
 
@@ -105,14 +105,14 @@ This PRD reconciles the brief's target state with the planned hexagonal architec
 | NFR-4 | RAG retrieval latency | < 300 ms (p95) for top-3 |
 | NFR-5 | Streaming time-to-first-token | < 1 s |
 | NFR-6 | DB migrations are reversible (TypeORM) | Required for prod |
-| NFR-7 | Test coverage of services + ports | ≥ 80% |
+| NFR-7 | Test coverage of services + interfaces | ≥ 80% |
 
 ## 8. Architecture Alignment (from UML artifacts)
 
 The hexagonal plan (`05-architecture.md`) maps directly to requirements:
 - **Inbound adapters** — controllers (route handlers), middleware, guards, interceptors, transformations. → FR-1, FR-20, FR-23.
 - **Application** — `ChatService`, `ConversationService`, `MessageService`. → FR-6, FR-8.
-- **Domain** — `Conversation`, `Message` entities + ports. → FR-21.
+- **Domain** — `Conversation`, `Message` entities + interfaces. → FR-21.
 - **Outbound adapters** — TypeORM (Postgres), LangChain AI, cache (KV), vector (Qdrant), plugins. → FR-14, FR-22.
 - **schema/** — `entity/` (SQL), `cache/` (KV), `vector/`. → FR-21.
 
@@ -187,14 +187,14 @@ erDiagram
 
 ## 12. Migration / Build Sequence (from `06-git.md`)
 
-1. Domain entities + ports (v2 with userId/parentId/status/Asset).
+1. Domain entities + interfaces (v2 with userId/parentId/status/Asset).
 2. Postgres repository adapters + migrations; retire SQLite.
 3. Application services (chat/conversation/message) with branching + status.
 4. Controllers as route handlers delegating to services.
 5. Cross-cutting: Clerk middleware/guard, interceptors, transformations.
 6. LangChain AI adapter behind `IAiProvider` + plugin strategies.
-7. Asset pipeline + Qdrant vector adapter (`IVectorPort`).
-8. KV cache adapter (`ICachePort`).
+7. Asset pipeline + Qdrant vector adapter (`IVectorInterface`).
+8. KV cache adapter (`ICacheInterface`).
 9. Shared `lib/types`, `lib/interfaces`.
 10. Update UML artifacts to v2, then docs.
 
