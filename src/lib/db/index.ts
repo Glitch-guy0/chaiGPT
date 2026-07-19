@@ -2,13 +2,14 @@ import "reflect-metadata"
 import { DataSource } from "typeorm"
 import { Conversation } from "./entities/conversation.entity"
 import { Message } from "./entities/message.entity"
+import { Asset } from "./entities/asset.entity"
 
 export const AppDataSource = new DataSource({
   type: "sqlite",
   database: "./chaiGPT.db",
   synchronize: true,
   logging: false,
-  entities: [Conversation, Message],
+  entities: [Conversation, Message, Asset],
   migrations: [],
 })
 
