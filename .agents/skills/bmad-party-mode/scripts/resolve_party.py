@@ -119,6 +119,8 @@ def build_collective(agents: dict, party_members: list):
             index[name.lower()] = code
 
     for code, info in agents.items():
+        if not isinstance(info, dict):
+            continue
         register(code, {
             "code": code,
             "name": info.get("name", code),

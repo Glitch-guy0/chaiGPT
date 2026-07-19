@@ -1,61 +1,68 @@
 ---
-title: chaiGPT — Product Brief
-status: draft
-created: 2026-07-15
-updated: 2026-07-15
-sections_completed: []
+title: chaiGPT Project Brief
+status: ready
+created: 2026-07-19
+updated: 2026-07-19
 ---
 
-## Executive Summary
+## Goal
 
-chaiGPT is a personal learning project that explores the architecture and interaction patterns behind modern conversational AI tools. It is not a production product — it exists to understand how chat interfaces, document-aware conversations, and decision-tree branching work in practice. The goal is hands-on familiarity with these systems, not shipping a competitor to ChatGPT.
+Build a context-aware conversational AI platform where authenticated users can have branching conversations, upload documents (PDF, TXT, MD) for retrieval-augmented generation, and maintain persistent conversation history scoped to their account.
 
-## The Problem
+## Current State
 
-Conversational AI tools like ChatGPT hide a lot of complexity: conversation state management, context windows, document ingestion, and the ability to explore alternate reasoning paths. If you want to understand how these pieces fit together, reading documentation only gets you so far. Building a stripped-down version surfaces the real tradeoffs — how to structure message history, how to attach context without blowing memory, how to let users explore multiple outcomes from the same starting point.
+- Flat chat UI with sidebar conversation list
+- SQLite persistence via TypeORM (`Conversation`, `Message` entities)
+- Streaming LLM responses through LangChain
+- No user accounts, no branching, no assets, no retrieval
 
-Today, you either use finished products (opaque) or build from scratch (overwhelming). A focused learning project fills the gap: enough structure to be real, not enough to be a maintenance burden.
+## Target State
 
-## The Solution
+- Clerk-authenticated users with scoped conversation history
+- User-scoped conversations with branching threads
+- Asset upload → embed → delete lifecycle with named Docker volume for persistence
+- Qdrant vector DB context retrieval (top-3 segments per query; PDFs chunked page-by-page, text files chunked at 2000 characters)
+- Conversation history with root/leaf tracking
+- Dockerized dev/prod environments via `infra/docker-compose.yml`
 
-A web-based chat interface with three core capabilities:
+## Key Architectural Decisions
 
-- **Chat interface**: Send messages, see responses, navigate history
-- **Conversations with document upload**: Create conversations, attach PDF or text documents that become part of the context
-- **Conversation branching**: From any message, fork the conversation into an alternate path — creating an inverted tree where the same parent can spawn multiple children, each continuing independently
+1. **Database:** PostgreSQL via Docker Compose. TypeORM migrations for schema evolution.
+2. **Vector Store:** Qdrant (Dockerized) for embedding storage and retrieval. LangChain `@langchain/qdrant` integration for RAG pipeline. PDFs are chunked page-by-page via LangChain. Text files (TXT, MD) are chunked at 2000 characters via LangChain text splitters.
+3. **LLM/Orchestration:** LangChain for prompt management, streaming, and retrieval chain.
+4. **Authentication:** Clerk (`@clerk/nextjs`) with Next.js App Router. Middleware protects routes; API routes verify session.
+5. **Branching:** Messages store `parent_id`; conversations store `root_conversation_id` and `last_message_id`. Sibling messages share the same `parent_id`. Branched conversations share the same `root_conversation_id`. Branching can be initiated from any agent message. Once a conversation continues with a sibling branch, the sidebar shows only the siblings; the conversation does not continue further with siblings. If a user edits a message, only the recently created sibling gets updated — not all siblings. Branching takes only the recently updated message for further conversation. Retries after that are ignored. The branched section continues with whatever `id` it started with (known bug, approved). Editing updates message content in place and does not affect branching.
+6. **Asset Pipeline:** Local filesystem staging → embed → delete original. No external object store in v1. A named Docker volume is created on `start:dev:infra`/`start:prod` and deleted on `stop:dev:infra`/`stop:prod` if explicitly provided. Assets referenced in deleted assistant replies are preserved and shown in the conversation; users may explicitly delete them. When the user is in edit mode, asset references from the trailing assistant reply remain visible with an option to remove them, performed according to user action.
+7. **Message Editing & Content Constraints:** Only the most recent user message is editable; all past user and agent messages have editing disabled. On edit, the latest user message and its trailing assistant reply are updated in place (same IDs, updated content) — no delete-and-replace. Editing is a content-only operation and does not affect branching. `conversations.last_message_id` remains unchanged. Messages have a `status` enum column: `processing`, `complete`, `stopped`. When the user sends a query, the user message is saved and a trailing assistant message is created with `status: processing`. Once the LLM streaming response completes, the assistant message status updates to `complete`. If the user explicitly terminates the response, the assistant message content shows "user terminated the response" and status updates to `stopped`. Maximum 500 characters per message. Content exceeding 200 characters on paste is converted to a `.txt` file and uploaded as an asset.
 
-The system uses Next.js, React, TypeScript, and Tailwind. The focus is on the conversation model and branching mechanics, not on building a new LLM.
+## Infrastructure
 
-## What Makes This Different
+- `infra/docker-compose.yml` with Postgres, Qdrant, and app service definitions
+- `infra/.env.example` with localhost defaults pointing to Docker services
+- npm scripts:
+  - `npm run start:dev` — run `start:dev:infra` and start the Next.js application on the host
+  - `npm run start:dev:infra` — create Docker volume (if not exists) and start Postgres + Qdrant via Docker Compose
+  - `npm run stop:dev:infra` — stop dev Docker instances and delete the volume if explicitly provided
+  - `npm run start:prod` — build and start full production stack (Postgres + Qdrant + application) via Docker Compose
+  - `npm run stop:prod` — stop prod Docker instances and delete the volume if explicitly provided
 
-chaiGPT is not trying to compete with existing tools. Its purpose is educational — the "moat" is understanding. The inverted-tree branching model (decisions as forks, not linear threads) is the distinguishing feature worth exploring. The project is right-sized for a single learner: no auth, no scaling, no production concerns. The value is in the building, not the shipping.
+## What We're NOT Building Now
 
-## Who This Serves
+- Custom design system work
+- Full branch tree visualization
+- Organizations or multi-tenancy beyond Clerk user scoping
 
-Just you (Prajwal). A personal sandbox for exploring conversation UX and state management. Success looks like: you finish the project and can explain how the branching model works, what the tradeoffs are, and how you'd change it if you were building for real users.
+## Next Steps
 
-## Success Criteria
-
-- End-to-end working prototype: create conversations, upload documents, send messages, branch conversations
-- You understand the state model behind branching (how to represent, render, and navigate a conversation tree)
-- You can articulate the key tradeoffs (memory, context window, UX complexity)
-- The code is clean enough to revisit later as a reference
-
-## Scope
-
-**In:**
-- Chat interface with message history
-- Conversation creation and selection
-- Document upload (PDF and plain text) attached to a conversation
-- Inverted-tree branching from any message in a conversation
-- Local state (no backend persistence required for learning)
-
-**Out:**
-- Authentication or multi-user support
-- Real LLM integration (placeholder responses acceptable for learning the structure)
-- Production deployment or reliability concerns
-- Mobile responsiveness (desktop-first is fine)
-
-## Vision
-
-If this works as a learning tool, it becomes a reference you can return to when building real conversation products. The branching model in particular is an interesting design pattern — if it proves useful, it could inform future projects. For now, the vision is simply: build it, understand it, move on.
+1. Scaffold Clerk auth (`clerk init`) and protect routes
+2. Add Postgres + Qdrant to `infra/docker-compose.yml` with named volume for assets (create on start, delete on stop if provided)
+3. Create `.env.example` and npm scripts for dev/prod lifecycle (`start:dev`, `start:dev:infra`, `stop:dev:infra`, `start:prod`, `stop:prod`)
+4. Migrate TypeORM from SQLite to Postgres (fresh start; clean existing SQLite data; schema + migrations)
+5. Update DB schema (`User` linkage, `Conversation` v2, `Message` v2 with `status` enum, `Asset`)
+6. Implement `@langchain/qdrant` embedding pipeline for RAG (PDF page-by-page chunking, 2000-char text chunking)
+7. Implement Markdown rendering for message content
+8. Implement message editing (edit-latest-user-only, in-place content update with message `status` enum and lifecycle)
+9. Implement branching from agent messages with sibling sidebar behavior
+10. Implement large-paste-to-txt asset flow and 500-char message limit
+11. Update API routes for branching queries and asset upload
+12. Update UI state model for branch-aware conversation list
