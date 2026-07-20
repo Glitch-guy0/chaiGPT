@@ -49,11 +49,11 @@ story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
   # Epic 1: Types & Contracts
-  epic-1: backlog
-  1-1-entity-type-typeorm-decorator-definitions: backlog
-  1-2-repository-service-interface-definitions: backlog
-  1-3-integration-module-interface-contracts: backlog
-  1-4-zod-validation-schemas-shared-app-types: backlog
+  epic-1: in-progress
+  1-1-entity-type-typeorm-decorator-definitions: ready-for-dev
+  1-2-repository-service-interface-definitions: ready-for-dev
+  1-3-integration-module-interface-contracts: ready-for-dev
+  1-4-zod-validation-schemas-shared-app-types: ready-for-dev
   epic-1-retrospective: optional
 
   # Epic 2: Foundation & Infra
