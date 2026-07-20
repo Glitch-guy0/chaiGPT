@@ -1,9 +1,10 @@
 import { Conversation } from '../lib/db/entities/conversation.entity'
 import { ConversationRepository } from '../lib/db/repositories/conversation.repository'
+import { MessageRepository } from '../lib/db/repositories/message.repository'
 import { CreateConversationSchema } from '../lib/validation/schemas'
 import { DEFAULT_MODEL } from '../lib/ai/langchain'
 import { NotFoundError } from '../lib/errors'
-import { z } from 'zod'
+
 
 export interface ConversationService {
   list(userId: string): Promise<Conversation[]>
@@ -16,7 +17,10 @@ export interface ConversationService {
 }
 
 export class ConversationServiceImpl implements ConversationService {
-  constructor(private repo: ConversationRepository) {}
+  constructor(
+    private repo: ConversationRepository,
+    private messageRepo: MessageRepository
+  ) {}
 
   async list(userId: string): Promise<Conversation[]> {
     const conversations = await this.repo.findAll(userId)
@@ -46,7 +50,25 @@ export class ConversationServiceImpl implements ConversationService {
     return conversation
   }
 
-  async branch(_id: string, _messageId: string, _userId: string): Promise<Conversation> {
-    throw new Error('branch not yet implemented')
+  async branch(id: string, messageId: string, userId: string): Promise<Conversation> {
+    const conversation = await this.repo.findById(id, userId)
+    if (!conversation) {
+      throw new NotFoundError('Conversation not found')
+    }
+
+    const message = await this.messageRepo.findById(messageId, userId)
+    if (!message) {
+      throw new NotFoundError('Message not found')
+    }
+
+    if (message.role !== 'assistant') {
+      throw new Error('Can only branch from assistant messages')
+    }
+
+    if (!message.parentId) {
+      throw new Error('Message has no parentId — cannot branch from root message')
+    }
+
+    return this.repo.branch(id, messageId, userId)
   }
 }

@@ -11,6 +11,7 @@ export async function createTestDataSource(): Promise<DataSource> {
     synchronize: true,
   });
   await ds.initialize();
+  await ds.query("PRAGMA foreign_keys = OFF");
   return ds;
 }
 

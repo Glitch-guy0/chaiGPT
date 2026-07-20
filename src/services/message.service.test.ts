@@ -8,12 +8,18 @@ import { NotFoundError } from "@/lib/errors";
 function createMockMessageRepo() {
   return {
     findById: vi.fn(),
+    findByIdInConversation: vi.fn(),
     findAll: vi.fn(),
     findByConversation: vi.fn(),
     findLatestUserMessage: vi.fn(),
     findTrailingAssistantMessage: vi.fn(),
+    findLatestSibling: vi.fn(),
+    findSiblingsByParentId: vi.fn().mockResolvedValue([]),
+    findByParentId: vi.fn().mockResolvedValue([]),
+    findMessageChain: vi.fn().mockResolvedValue([]),
     save: vi.fn(),
     updateStatus: vi.fn(),
+    tryStartRegenerate: vi.fn(),
   } satisfies MessageRepository;
 }
 
@@ -166,6 +172,119 @@ describe("MessageServiceImpl", () => {
       expect(conversationRepo.findById).toHaveBeenCalledWith(CONV_ID, USER_ID);
       expect(messageRepo.findLatestUserMessage).toHaveBeenCalledWith(CONV_ID, USER_ID);
       expect(messageRepo.findTrailingAssistantMessage).toHaveBeenCalledWith(CONV_ID, "user-msg-1", USER_ID);
+    });
+  });
+
+  describe("branch-aware editLatest", () => {
+    const USER_ID = "user-1";
+    const CONV_ID = "conv-1";
+    const NEW_CONTENT = "edited content";
+
+    function makeSibling(id: string, parentId: string, createdAt: Date, role: "user" | "assistant" = "user") {
+      return makeMessage({ id, parentId, role, createdAt, content: `orig-${id}` });
+    }
+
+    it("AC#1 edits only the most-recently-created sibling", async () => {
+      const conv = makeConversation({ lastMessageId: "asst-3" });
+      const t1 = makeSibling("user-1", "P-1", new Date("2025-01-01T00:00:01Z"));
+      const t2 = makeSibling("user-2", "P-1", new Date("2025-01-01T00:00:02Z"));
+      const t3 = makeSibling("user-3", "P-1", new Date("2025-01-01T00:00:03Z"));
+
+      conversationRepo.findById.mockResolvedValue(conv);
+      messageRepo.findByIdInConversation
+        .mockResolvedValueOnce(makeMessage({ id: "asst-3", role: "assistant", parentId: "user-3" }))
+        .mockResolvedValueOnce(makeMessage({ id: "user-3", role: "user", parentId: "P-1" }));
+      messageRepo.findSiblingsByParentId.mockResolvedValue([t1, t2, t3]);
+      messageRepo.findLatestSibling.mockResolvedValue(t3);
+      messageRepo.findTrailingAssistantMessage.mockResolvedValue(null);
+      messageRepo.findByParentId.mockResolvedValue([]);
+      messageRepo.save.mockImplementation(async (m: Partial<Message>) => m as Message);
+
+      const result = await service.editLatest(USER_ID, CONV_ID, NEW_CONTENT);
+
+      expect(messageRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: "user-3", content: NEW_CONTENT }));
+      expect(result.userMessage.id).toBe("user-3");
+      const savedIds = messageRepo.save.mock.calls.map((c) => c[0].id);
+      expect(savedIds).not.toContain("user-1");
+      expect(savedIds).not.toContain("user-2");
+    });
+
+    it("AC#2/AC#5 leaves lastMessageId and conversation untouched", async () => {
+      const conv = makeConversation({ lastMessageId: "asst-3" });
+      const t3 = makeSibling("user-3", "P-1", new Date("2025-01-01T00:00:03Z"));
+
+      conversationRepo.findById.mockResolvedValue(conv);
+      messageRepo.findByIdInConversation
+        .mockResolvedValueOnce(makeMessage({ id: "asst-3", role: "assistant", parentId: "user-3" }))
+        .mockResolvedValueOnce(makeMessage({ id: "user-3", role: "user", parentId: "P-1" }));
+      messageRepo.findSiblingsByParentId.mockResolvedValue([t3]);
+      messageRepo.findLatestSibling.mockResolvedValue(t3);
+      messageRepo.findTrailingAssistantMessage.mockResolvedValue(null);
+      messageRepo.findByParentId.mockResolvedValue([]);
+      messageRepo.save.mockImplementation(async (m: Partial<Message>) => m as Message);
+
+      const before = conv.lastMessageId;
+      await service.editLatest(USER_ID, CONV_ID, NEW_CONTENT);
+
+      expect(conversationRepo.save).not.toHaveBeenCalled();
+      expect(conv.lastMessageId).toBe(before);
+    });
+
+    it("AC#3 rejects editing a branched-away sibling", async () => {
+      const conv = makeConversation({ lastMessageId: "asst-3" });
+      const t3 = makeSibling("user-3", "P-1", new Date("2025-01-01T00:00:03Z"));
+
+      conversationRepo.findById.mockResolvedValue(conv);
+      messageRepo.findByIdInConversation
+        .mockResolvedValueOnce(makeMessage({ id: "asst-3", role: "assistant", parentId: "user-3" }))
+        .mockResolvedValueOnce(makeMessage({ id: "user-3", role: "user", parentId: "P-1" }));
+      messageRepo.findSiblingsByParentId.mockResolvedValue([t3]);
+      messageRepo.findLatestSibling.mockResolvedValue(t3);
+      messageRepo.findTrailingAssistantMessage.mockResolvedValue(null);
+      messageRepo.findByParentId.mockResolvedValue([makeMessage({ id: "forked", conversationId: "conv-other", parentId: "user-3" })]);
+      messageRepo.save.mockImplementation(async (m: Partial<Message>) => m as Message);
+
+      await expect(service.editLatest(USER_ID, CONV_ID, NEW_CONTENT)).rejects.toThrow(
+        "Cannot edit a message that has been branched from",
+      );
+      expect(messageRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("AC#3 rejects editing a non-latest sibling", async () => {
+      const conv = makeConversation({ lastMessageId: "asst-1" });
+      const older = makeSibling("user-1", "P-1", new Date("2025-01-01T00:00:01Z"));
+      const newer = makeSibling("user-2", "P-1", new Date("2025-01-01T00:00:02Z"));
+
+      conversationRepo.findById.mockResolvedValue(conv);
+      messageRepo.findByIdInConversation
+        .mockResolvedValueOnce(makeMessage({ id: "asst-1", role: "assistant", parentId: "user-1" }))
+        .mockResolvedValueOnce(makeMessage({ id: "user-1", role: "user", parentId: "P-1" }));
+      messageRepo.findSiblingsByParentId.mockResolvedValue([older]);
+      messageRepo.findLatestSibling.mockResolvedValue(newer);
+      messageRepo.findByParentId.mockResolvedValue([]);
+      messageRepo.save.mockImplementation(async (m: Partial<Message>) => m as Message);
+
+      await expect(service.editLatest(USER_ID, CONV_ID, NEW_CONTENT)).rejects.toThrow(
+        "Can only edit the most recent sibling",
+      );
+      expect(messageRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("AC#4 regression: no parentId falls back to global latest user message", async () => {
+      const conv = makeConversation({ lastMessageId: undefined });
+      const userMsg = makeMessage({ id: "user-msg-1", role: "user", content: "original" });
+      const assistantMsg = makeMessage({ id: "asst-msg-1", role: "assistant", content: "response" });
+
+      conversationRepo.findById.mockResolvedValue(conv);
+      messageRepo.findLatestUserMessage.mockResolvedValue(userMsg);
+      messageRepo.findTrailingAssistantMessage.mockResolvedValue(assistantMsg);
+      messageRepo.save.mockImplementation(async (m: Partial<Message>) => m as Message);
+
+      const result = await service.editLatest(USER_ID, CONV_ID, NEW_CONTENT);
+
+      expect(messageRepo.findLatestUserMessage).toHaveBeenCalledWith(CONV_ID, USER_ID);
+      expect(result.userMessage.id).toBe("user-msg-1");
+      expect(result.userMessage.content).toBe(NEW_CONTENT);
     });
   });
 });

@@ -148,7 +148,7 @@ export class ChatServiceImpl implements ChatService {
             ),
           );
           controller.close();
-        } catch (err) {
+        } catch {
           if (done) return;
           done = true;
           await this.messageRepo.updateStatus(assistantMessageId, 'stopped' as MessageStatus, userId);
@@ -201,13 +201,14 @@ export class ChatServiceImpl implements ChatService {
     const message = await this.messageRepo.findById(messageId, userId);
     if (!message) throw new NotFoundError('Message not found');
 
-    if (message.role !== 'assistant' || message.status !== 'stopped') {
+    const started = await this.messageRepo.tryStartRegenerate(messageId, userId);
+    if (!started) {
       throw new Error('Can only regenerate stopped assistant messages');
     }
 
-    await this.messageRepo.updateStatus(messageId, 'processing' as MessageStatus, userId);
-
-    const history = await this.messageRepo.findByConversation(message.conversationId, userId);
+    const history = message.parentId
+      ? await this.messageRepo.findMessageChain(message.conversationId, message.parentId, userId)
+      : [];
 
     const messages: ChatMessage[] = [
       { role: 'system', content: 'You are a helpful assistant.' },

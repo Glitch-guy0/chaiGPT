@@ -5,12 +5,18 @@ export type { MessageStatus };
 
 export interface MessageRepository {
   findById(id: string, userId: string): Promise<Message | null>;
+  findByIdInConversation(id: string, conversationId: string, userId: string): Promise<Message | null>;
   findAll(userId: string): Promise<Message[]>;
   findByConversation(conversationId: string, userId: string): Promise<Message[]>;
   findLatestUserMessage(conversationId: string, userId: string): Promise<Message | null>;
   findTrailingAssistantMessage(conversationId: string, parentId: string, userId: string): Promise<Message | null>;
+  findLatestSibling(parentId: string, conversationId: string, userId: string): Promise<Message | null>;
+  findSiblingsByParentId(parentId: string, conversationId: string, userId: string): Promise<Message[]>;
+  findByParentId(parentId: string, userId: string): Promise<Message[]>;
+  findMessageChain(conversationId: string, fromMessageId: string, userId: string): Promise<Message[]>;
   save(m: Partial<Message>): Promise<Message>;
   updateStatus(id: string, status: MessageStatus, userId: string): Promise<void>;
+  tryStartRegenerate(id: string, userId: string): Promise<boolean>;
 }
 
 export class MessageRepositoryImpl implements MessageRepository {
@@ -22,6 +28,10 @@ export class MessageRepositoryImpl implements MessageRepository {
 
   async findById(id: string, userId: string): Promise<Message | null> {
     return this.repo.findOne({ where: { id, userId } })
+  }
+
+  async findByIdInConversation(id: string, conversationId: string, userId: string): Promise<Message | null> {
+    return this.repo.findOne({ where: { id, conversationId, userId } })
   }
 
   async findAll(userId: string): Promise<Message[]> {
@@ -40,6 +50,38 @@ export class MessageRepositoryImpl implements MessageRepository {
     return this.repo.findOne({ where: { conversationId, userId, parentId, role: 'assistant' }, order: { createdAt: 'DESC' } })
   }
 
+  async findLatestSibling(parentId: string, conversationId: string, userId: string): Promise<Message | null> {
+    return this.repo.findOne({ where: { parentId, conversationId, userId }, order: { createdAt: 'DESC', id: 'DESC' } })
+  }
+
+  async findSiblingsByParentId(parentId: string, conversationId: string, userId: string): Promise<Message[]> {
+    return this.repo.find({ where: { parentId, conversationId, userId }, order: { createdAt: 'ASC', id: 'ASC' } })
+  }
+
+  async findByParentId(parentId: string, userId: string): Promise<Message[]> {
+    return this.repo.find({ where: { parentId, userId } })
+  }
+
+  async findMessageChain(conversationId: string, fromMessageId: string, userId: string): Promise<Message[]> {
+    const start = await this.repo.findOne({ where: { id: fromMessageId, conversationId, userId } });
+    if (!start) return [];
+
+    const result: Message[] = [];
+    let current: string | undefined = fromMessageId;
+    let guard = 0;
+    while (current && guard++ < 500) {
+      const msg = await this.repo.findOne({ where: { id: current, conversationId, userId } });
+      if (!msg) {
+        console.warn(`findMessageChain: orphaned parent ${current}`);
+        break;
+      }
+      result.unshift(msg);
+      if (!msg.parentId) break;
+      current = msg.parentId;
+    }
+    return result;
+  }
+
   async save(m: Partial<Message>): Promise<Message> {
     return this.repo.save(m)
   }
@@ -47,5 +89,13 @@ export class MessageRepositoryImpl implements MessageRepository {
   async updateStatus(id: string, status: MessageStatus, userId: string): Promise<void> {
     const result = await this.repo.update({ id, userId }, { status })
     if (result.affected === 0) throw new Error('Message not found')
+  }
+
+  async tryStartRegenerate(id: string, userId: string): Promise<boolean> {
+    const result = await this.repo.update(
+      { id, userId, role: 'assistant', status: 'stopped' },
+      { status: 'processing' }
+    )
+    return (result.affected ?? 0) > 0
   }
 }

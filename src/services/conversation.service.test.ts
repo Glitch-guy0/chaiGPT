@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { ConversationRepository } from "../lib/db/repositories/conversation.repository";
+import type { MessageRepository } from "../lib/db/repositories/message.repository";
 import type { Conversation } from "../lib/db/entities/conversation.entity";
+import type { Message } from "../lib/db/entities/message.entity";
 import { NotFoundError } from "../lib/errors";
 
 function createMockRepo() {
@@ -10,6 +12,24 @@ function createMockRepo() {
     save: vi.fn(),
     branch: vi.fn(),
   } satisfies ConversationRepository;
+}
+
+function createMockMessageRepo() {
+  return {
+    findById: vi.fn(),
+    findByIdInConversation: vi.fn(),
+    findAll: vi.fn(),
+    findByConversation: vi.fn(),
+    findLatestUserMessage: vi.fn(),
+    findTrailingAssistantMessage: vi.fn(),
+    findLatestSibling: vi.fn().mockResolvedValue(null),
+    findSiblingsByParentId: vi.fn().mockResolvedValue([]),
+    findByParentId: vi.fn().mockResolvedValue([]),
+    findMessageChain: vi.fn().mockResolvedValue([]),
+    save: vi.fn(),
+    updateStatus: vi.fn(),
+    tryStartRegenerate: vi.fn(),
+  } satisfies MessageRepository;
 }
 
 function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
@@ -24,6 +44,21 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
   } as Conversation;
 }
 
+function makeMessage(overrides: Partial<Message> = {}): Message {
+  return {
+    id: "msg-1",
+    conversationId: "conv-1",
+    userId: "user-1",
+    parentId: "msg-0",
+    role: "assistant",
+    content: "Hi there",
+    status: "complete",
+    createdAt: new Date("2025-01-01T00:00:00Z"),
+    updatedAt: new Date("2025-01-01T00:00:00Z"),
+    ...overrides,
+  } as Message;
+}
+
 describe("ConversationService (interface contract)", () => {
   it("should export the ConversationService interface type", async () => {
     const mod = await import("./conversation.service");
@@ -34,12 +69,14 @@ describe("ConversationService (interface contract)", () => {
 
 describe("ConversationServiceImpl", () => {
   let repo: ReturnType<typeof createMockRepo>;
+  let messageRepo: ReturnType<typeof createMockMessageRepo>;
   let service: import("./conversation.service").ConversationServiceImpl;
 
   beforeEach(async () => {
     repo = createMockRepo();
+    messageRepo = createMockMessageRepo();
     const mod = await import("./conversation.service");
-    service = new mod.ConversationServiceImpl(repo);
+    service = new mod.ConversationServiceImpl(repo, messageRepo);
   });
 
   describe("list", () => {
@@ -135,6 +172,66 @@ describe("ConversationServiceImpl", () => {
       await expect(
         service.getById("nonexistent", "user-1")
       ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("branch", () => {
+    it("creates new conversation via repo.branch", async () => {
+      const conv = makeConversation({ id: "conv-1", userId: "user-1" });
+      const msg = makeMessage({ id: "msg-1", conversationId: "conv-1", userId: "user-1" });
+      const branch = makeConversation({ id: "branch-1", userId: "user-1" });
+      repo.findById.mockResolvedValue(conv);
+      messageRepo.findById.mockResolvedValue(msg);
+      repo.branch.mockResolvedValue(branch);
+
+      const result = await service.branch("conv-1", "msg-1", "user-1");
+
+      expect(repo.branch).toHaveBeenCalledWith("conv-1", "msg-1", "user-1");
+      expect(result.id).toBe("branch-1");
+    });
+
+    it("throws NotFoundError on non-existent conversation", async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.branch("missing", "msg-1", "user-1")
+      ).rejects.toThrow(NotFoundError);
+      expect(repo.branch).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundError on non-existent message", async () => {
+      const conv = makeConversation({ id: "conv-1", userId: "user-1" });
+      repo.findById.mockResolvedValue(conv);
+      messageRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.branch("conv-1", "missing", "user-1")
+      ).rejects.toThrow(NotFoundError);
+      expect(repo.branch).not.toHaveBeenCalled();
+    });
+
+    it("rejects non-assistant messages", async () => {
+      const conv = makeConversation({ id: "conv-1", userId: "user-1" });
+      const msg = makeMessage({ id: "msg-1", role: "user" });
+      repo.findById.mockResolvedValue(conv);
+      messageRepo.findById.mockResolvedValue(msg);
+
+      await expect(
+        service.branch("conv-1", "msg-1", "user-1")
+      ).rejects.toThrow(/assistant/);
+      expect(repo.branch).not.toHaveBeenCalled();
+    });
+
+    it("rejects messages without parentId", async () => {
+      const conv = makeConversation({ id: "conv-1", userId: "user-1" });
+      const msg = makeMessage({ id: "msg-1", parentId: undefined });
+      repo.findById.mockResolvedValue(conv);
+      messageRepo.findById.mockResolvedValue(msg);
+
+      await expect(
+        service.branch("conv-1", "msg-1", "user-1")
+      ).rejects.toThrow(/parentId/);
+      expect(repo.branch).not.toHaveBeenCalled();
     });
   });
 });

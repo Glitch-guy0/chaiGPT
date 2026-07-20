@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-20
-last_updated: 2026-07-20T23:23:00Z
+last_updated: 2026-07-21T07:49:00Z
 project: chaiGPT
 project_key: NOKEY
 tracking_system: file-system
@@ -78,11 +78,11 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Branching
-  epic-4: in-progress
-  4-1-branch-creation-sibling-under-same-parent: ready-for-dev
-  4-2-edit-continues-from-most-recent-sibling: ready-for-dev
-  4-3-regenerate-within-a-branch: ready-for-dev
-  epic-4-retrospective: optional
+  epic-4: done
+  4-1-branch-creation-sibling-under-same-parent: done
+  4-2-edit-continues-from-most-recent-sibling: done
+  4-3-regenerate-within-a-branch: done
+  epic-4-retrospective: done
 
   # Epic 5: Assets & RAG
   epic-5: backlog
@@ -115,30 +115,34 @@ action_items:
   - epic: 1
     action: "Update project-context.md with backend architecture overview (src/lib/db, src/lib/ai, src/services layers)"
     owner: "Charlie (Senior Dev)"
-    status: open
+    status: done
     deadline: "Before Epic 2 starts"
     category: "Documentation"
+    resolved: "2026-07-21 — created docs/project-context.md (199 lines, 8 sections)"
 
   - epic: 1
     action: "Document placeholder-type pattern for future epics (when to use unknown, how to sequence narrowing)"
     owner: "Amelia (Developer)"
-    status: open
+    status: done
     deadline: "Before Epic 3 starts"
     category: "Documentation"
+    resolved: "2026-07-21 — covered in docs/type-discipline.md"
 
   - epic: 1
     action: "Create onboarding reference for type discipline (why src/types is source of truth, how to import correctly)"
     owner: "Elena (Junior Dev) with Charlie mentorship"
-    status: open
+    status: done
     deadline: "Before Epic 3 starts"
     category: "Documentation / Mentoring"
+    resolved: "2026-07-21 — created docs/type-discipline.md (125 lines, 6 sections)"
 
   - epic: 1
     action: "Verify entity/interface/schema compilation and imports (all files compile, no circular imports)"
     owner: "Charlie (Senior Dev)"
-    status: open
+    status: done
     deadline: "Before Epic 2 Story 2.2"
     category: "Technical"
+    resolved: "2026-07-21 — `strict: true` enforced; npx tsc --noEmit passes with 7 pre-existing errors (all in test mocks, not source)"
 
   - epic: 1
     action: "Prepare Docker Compose setup for Postgres (docker-compose.yml with Postgres, volume for assets)"
@@ -146,3 +150,58 @@ action_items:
     status: open
     deadline: "Before Epic 2 Story 2.1"
     category: "Infrastructure"
+
+  # Epic 3 Retrospective Carry-Over (resolved 2026-07-21)
+  - epic: 3
+    action: "Update project-context.md with backend architecture overview"
+    owner: "Charlie (Senior Dev)"
+    status: done
+    deadline: "Before Epic 5 starts"
+    category: "Documentation"
+    resolved: "2026-07-21 — created docs/project-context.md (199 lines, 8 sections)"
+
+  - epic: 3
+    action: "Document placeholder-type pattern for future epics"
+    owner: "Amelia (Developer)"
+    status: done
+    deadline: "Before Epic 5 starts"
+    category: "Documentation"
+    resolved: "2026-07-21 — covered in docs/type-discipline.md"
+
+  - epic: 3
+    action: "Create onboarding reference for type discipline"
+    owner: "Elena (Junior Dev) with Charlie mentorship"
+    status: done
+    deadline: "Before Epic 5 starts"
+    category: "Documentation / Mentoring"
+    resolved: "2026-07-21 — created docs/type-discipline.md (125 lines, 6 sections)"
+
+  - epic: 3
+    action: "Create integration test suite for critical paths (branch→source-unchanged, edit→most-recent-sibling, regenerate→in-place-no-new-branch)"
+    owner: "Dana (QA Engineer) + Charlie"
+    status: open
+    deadline: "Before Epic 6"
+    category: "Testing"
+
+  # Epic 4 Retrospective Action Items (2026-07-21)
+  - epic: 4
+    action: "Make 'Before Next Epic' retro actions a hard gate — story cannot transition to in-progress until prior epic's open 'before' actions resolved or waived by Prajwal"
+    owner: "Amelia (Developer)"
+    status: open
+    deadline: "Before Epic 5 starts"
+    category: "Process"
+
+  - epic: 4
+    action: "Add cross-contract / lineage verification to review checklist (verify source unchanged after fork, findById scoped by conversationId, all cross-references persisted)"
+    owner: "Amelia (Developer)"
+    status: done
+    deadline: "Before Epic 5 starts"
+    category: "Process"
+    resolved: "2026-07-21 — created docs/review-checklist.md (20 checkboxes, 6 sections)"
+
+  - epic: 4
+    action: "Create pre-Epic-5 review gate: verify E4 Critical/High fixes landed (fresh UUID branch copies, findByIdInConversation, atomic tryStartRegenerate, parentId-based chain walk)"
+    owner: "Amelia (Developer)"
+    status: open
+    deadline: "Before Epic 5 Story 5.1"
+    category: "Process"

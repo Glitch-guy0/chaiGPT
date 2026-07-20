@@ -34,4 +34,9 @@ export const WebSearchArgsSchema = z.object({
   query: z.string().min(1),
 });
 
+export const BranchRequestSchema = z.object({
+  messageId: z.string().uuid(),
+});
+
+export type BranchRequest = z.infer<typeof BranchRequestSchema>;
 export type WebSearchArgs = z.infer<typeof WebSearchArgsSchema>;

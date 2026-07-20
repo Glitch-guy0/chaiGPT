@@ -123,4 +123,92 @@ describe("MessageRepositoryImpl", () => {
     const msgs = await repo.findByConversation(conv1.id, "user-1");
     await expect(repo.updateStatus(msgs[0].id, "stopped", "user-2")).rejects.toThrow("Message not found");
   });
+
+  it("should find latest sibling by parentId (any role), scoped by userId", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const repo2 = ds.getRepository("Message");
+    const parent = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "parent", status: "complete" });
+    const base = new Date("2025-01-01T00:00:00Z");
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "u1", status: "complete", parentId: parent.id, createdAt: new Date(base.getTime() + 1000) });
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "u2", status: "complete", parentId: parent.id, createdAt: new Date(base.getTime() + 2000) });
+
+    const latest = await repo.findLatestSibling(parent.id, conv1.id, "user-1");
+    expect(latest).not.toBeNull();
+    expect(latest!.content).toBe("u2");
+
+    const none = await repo.findLatestSibling(parent.id, conv1.id, "user-2");
+    expect(none).toBeNull();
+  });
+
+  it("should find siblings by parentId ordered ASC, scoped by userId", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const repo2 = ds.getRepository("Message");
+    const parent = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "parent", status: "complete" });
+    const base = new Date("2025-01-01T00:00:00Z");
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "u1", status: "complete", parentId: parent.id, createdAt: new Date(base.getTime() + 1000) });
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "u2", status: "complete", parentId: parent.id, createdAt: new Date(base.getTime() + 2000) });
+    await repo2.save({ conversationId: conv1.id, userId: "user-2", role: "user", content: "other", status: "complete", parentId: parent.id, createdAt: new Date(base.getTime() + 3000) });
+
+    const siblings = await repo.findSiblingsByParentId(parent.id, conv1.id, "user-1");
+    expect(siblings.length).toBe(2);
+    expect(siblings[0].content).toBe("u1");
+    expect(siblings[1].content).toBe("u2");
+  });
+
+  it("should find by parentId across conversations (branched-away detection)", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const convRepo = ds.getRepository("Conversation");
+    const conv2 = await convRepo.save({ userId: "user-1", title: "branch" });
+    const repo2 = ds.getRepository("Message");
+    const parent = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "parent", status: "complete" });
+
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "u1", status: "complete", parentId: parent.id });
+    await repo2.save({ conversationId: conv2.id, userId: "user-1", role: "user", content: "forked", status: "complete", parentId: parent.id });
+
+    const children = await repo.findByParentId(parent.id, "user-1");
+    expect(children.length).toBe(2);
+    const foreign = children.find((c) => c.conversationId !== conv1.id);
+    expect(foreign).toBeDefined();
+    expect(foreign!.content).toBe("forked");
+  });
+
+  it("should walk parentId chain root-first and exclude sibling branches", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const repo2 = ds.getRepository("Message");
+    const base = new Date("2025-01-01T00:00:00Z");
+
+    const root = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "root", status: "complete", createdAt: new Date(base.getTime()) });
+    const a = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "A", status: "complete", parentId: root.id, createdAt: new Date(base.getTime() + 1000) });
+    const b = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "B", status: "stopped", parentId: a.id, createdAt: new Date(base.getTime() + 2000) });
+    await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "sibling", status: "complete", parentId: a.id, createdAt: new Date(base.getTime() + 3000) });
+
+    const chain = await repo.findMessageChain(conv1.id, b.id, "user-1");
+    expect(chain.map((m) => m.content)).toEqual(["root", "A", "B"]);
+    expect(chain.length).toBe(3);
+  });
+
+  it("should return only the root message when parentId is null", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const repo2 = ds.getRepository("Message");
+    const flat = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "flat", status: "stopped" });
+
+    const chain = await repo.findMessageChain(conv1.id, flat.id, "user-1");
+    expect(chain.length).toBe(1);
+    expect(chain[0].content).toBe("flat");
+  });
+
+  it("should terminate gracefully at an orphaned parent", async () => {
+    const { conv1 } = await seedTestData(ds);
+    const repo2 = ds.getRepository("Message");
+    const base = new Date("2025-01-01T00:00:00Z");
+
+    const root = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "user", content: "root", status: "complete", createdAt: new Date(base.getTime()) });
+    const orphaned = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "orphan", status: "complete", parentId: root.id, createdAt: new Date(base.getTime() + 1000) });
+    const tail = await repo2.save({ conversationId: conv1.id, userId: "user-1", role: "assistant", content: "tail", status: "stopped", parentId: "does-not-exist", createdAt: new Date(base.getTime() + 2000) });
+
+    await repo2.update(orphaned.id, { parentId: "does-not-exist" });
+
+    const chain = await repo.findMessageChain(conv1.id, tail.id, "user-1");
+    expect(chain.map((m) => m.content)).toEqual(["tail"]);
+  });
 });

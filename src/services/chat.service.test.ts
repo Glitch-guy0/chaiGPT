@@ -24,12 +24,18 @@ function createMockConversationRepo() {
 function createMockMessageRepo() {
   return {
     findById: vi.fn(),
+    findByIdInConversation: vi.fn(),
     findAll: vi.fn(),
     findByConversation: vi.fn(),
     findLatestUserMessage: vi.fn(),
     findTrailingAssistantMessage: vi.fn(),
+    findLatestSibling: vi.fn().mockResolvedValue(null),
+    findSiblingsByParentId: vi.fn().mockResolvedValue([]),
+    findByParentId: vi.fn().mockResolvedValue([]),
+    findMessageChain: vi.fn().mockResolvedValue([]),
     save: vi.fn(),
     updateStatus: vi.fn(),
+    tryStartRegenerate: vi.fn(),
   } satisfies MessageRepository;
 }
 
@@ -378,7 +384,7 @@ describe("ChatServiceImpl", () => {
         { chunkId: "c1", assetId: "a1", score: 0.9, text: "Relevant doc text" },
       ]);
 
-      const mod = await import("./chat.service");
+      await import("./chat.service");
       service = new ChatServiceImpl(
         conversationRepo,
         messageRepo,
@@ -413,7 +419,7 @@ describe("ChatServiceImpl", () => {
       const qdrant = new MockQdrantStore();
       qdrant.onEmbed(async () => { throw new Error("Embed failed"); });
 
-      const mod = await import("./chat.service");
+      await import("./chat.service");
       service = new ChatServiceImpl(
         conversationRepo,
         messageRepo,
@@ -467,7 +473,7 @@ describe("ChatServiceImpl", () => {
       const assetRepo = createMockAssetRepo();
       assetRepo.save.mockResolvedValue({ id: "asset-1" } as any);
 
-      const mod = await import("./chat.service");
+      await import("./chat.service");
       service = new ChatServiceImpl(
         conversationRepo,
         messageRepo,
@@ -496,7 +502,7 @@ describe("ChatServiceImpl", () => {
 
       const assetRepo = createMockAssetRepo();
 
-      const mod = await import("./chat.service");
+      await import("./chat.service");
       service = new ChatServiceImpl(
         conversationRepo,
         messageRepo,
@@ -553,11 +559,11 @@ describe("ChatServiceImpl", () => {
 
   describe("regenerate", () => {
     it("re-processes a stopped message and returns a stream", async () => {
-      const stoppedMsg = makeMessage({ id: "msg-stop-1", status: "stopped", role: "assistant", content: "previous" });
+      const stoppedMsg = makeMessage({ id: "msg-stop-1", status: "stopped", role: "assistant", content: "previous", parentId: "hist-1" });
       messageRepo.findById.mockResolvedValue(stoppedMsg);
-      messageRepo.findByConversation.mockResolvedValue([
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+      messageRepo.findMessageChain.mockResolvedValue([
         makeMessage({ id: "hist-1", role: "user", content: "Hello", status: "complete" }),
-        stoppedMsg,
       ]);
 
       aiProvider.onStream(async (_msgs, onChunk) => {
@@ -568,7 +574,7 @@ describe("ChatServiceImpl", () => {
       const stream = await service.regenerate("msg-stop-1", "user-1");
       const events = await collectStreamEvents(stream);
 
-      expect(messageRepo.updateStatus).toHaveBeenCalledWith("msg-stop-1", "processing", "user-1");
+      expect(messageRepo.tryStartRegenerate).toHaveBeenCalledWith("msg-stop-1", "user-1");
       expect(events).toEqual(
         expect.arrayContaining([
           `data: ${JSON.stringify({ token: "New " })}\n\n`,
@@ -583,6 +589,7 @@ describe("ChatServiceImpl", () => {
     it("rejects non-stopped messages", async () => {
       const completeMsg = makeMessage({ id: "msg-c-1", status: "complete", role: "assistant" });
       messageRepo.findById.mockResolvedValue(completeMsg);
+      messageRepo.tryStartRegenerate.mockResolvedValue(false);
 
       await expect(
         service.regenerate("msg-c-1", "user-1"),
@@ -598,11 +605,11 @@ describe("ChatServiceImpl", () => {
     });
 
     it("does not create a new message row during regenerate", async () => {
-      const stoppedMsg = makeMessage({ id: "msg-stop-2", status: "stopped", role: "assistant" });
+      const stoppedMsg = makeMessage({ id: "msg-stop-2", status: "stopped", role: "assistant", parentId: "hist-2" });
       messageRepo.findById.mockResolvedValue(stoppedMsg);
-      messageRepo.findByConversation.mockResolvedValue([
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+      messageRepo.findMessageChain.mockResolvedValue([
         makeMessage({ id: "hist-2", role: "user", content: "Hi", status: "complete" }),
-        stoppedMsg,
       ]);
 
       aiProvider.onStream(async (_msgs, onChunk) => {
@@ -622,11 +629,11 @@ describe("ChatServiceImpl", () => {
     });
 
     it("sets stopped status on abort during regenerate", async () => {
-      const stoppedMsg = makeMessage({ id: "msg-abort", status: "stopped", role: "assistant" });
+      const stoppedMsg = makeMessage({ id: "msg-abort", status: "stopped", role: "assistant", parentId: "hist-3" });
       messageRepo.findById.mockResolvedValue(stoppedMsg);
-      messageRepo.findByConversation.mockResolvedValue([
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+      messageRepo.findMessageChain.mockResolvedValue([
         makeMessage({ id: "hist-3", role: "user", content: "Hi", status: "complete" }),
-        stoppedMsg,
       ]);
 
       aiProvider.onStream(async () => {
@@ -641,6 +648,82 @@ describe("ChatServiceImpl", () => {
         (c: Partial<Message>[]) => c[0]?.id === "msg-abort" && c[0]?.content === "user terminated the response",
       );
       expect(stoppedSave).toBeDefined();
+    });
+
+    it("uses findMessageChain from parentId (excludes self) within a branch, overwriting same id in place", async () => {
+      const rootUser = makeMessage({ id: "root-u", role: "user", content: "Hi", status: "complete", parentId: undefined });
+      const branchMsg = makeMessage({
+        id: "branch-a",
+        role: "assistant",
+        content: "previous",
+        status: "stopped",
+        parentId: "root-u",
+      });
+      messageRepo.findById.mockResolvedValue(branchMsg);
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+      messageRepo.findMessageChain.mockResolvedValue([rootUser]);
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("Fresh");
+      });
+
+      const stream = await service.regenerate("branch-a", "user-1");
+      const events = await collectStreamEvents(stream);
+
+      expect(messageRepo.findMessageChain).toHaveBeenCalledWith("conv-1", "root-u", "user-1");
+      expect(messageRepo.findByConversation).not.toHaveBeenCalled();
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      expect(doneEvent).toContain('"id":"branch-a"');
+      expect(doneEvent).toContain('"status":"complete"');
+
+      const newRowCalls = messageRepo.save.mock.calls.filter(
+        (c: Partial<Message>[]) => c[0]?.id === undefined,
+      );
+      expect(newRowCalls.length).toBe(0);
+    });
+
+    it("preserves parentId and sets stopped status on abort within a branch", async () => {
+      const branchMsg = makeMessage({
+        id: "branch-abort",
+        role: "assistant",
+        content: "previous",
+        status: "stopped",
+        parentId: "root-u-2",
+      });
+      messageRepo.findById.mockResolvedValue(branchMsg);
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+      messageRepo.findMessageChain.mockResolvedValue([]);
+
+      aiProvider.onStream(async () => {
+        throw new Error("Stream aborted");
+      });
+
+      const stream = await service.regenerate("branch-abort", "user-1");
+      await collectStreamEvents(stream);
+
+      expect(messageRepo.findMessageChain).toHaveBeenCalledWith("conv-1", "root-u-2", "user-1");
+      expect(messageRepo.updateStatus).toHaveBeenCalledWith("branch-abort", "stopped", "user-1");
+      const stoppedSave = messageRepo.save.mock.calls.find(
+        (c: Partial<Message>[]) => c[0]?.id === "branch-abort" && c[0]?.content === "user terminated the response",
+      );
+      expect(stoppedSave).toBeDefined();
+    });
+
+    it("returns empty history for root message with no parentId", async () => {
+      const rootMsg = makeMessage({ id: "root-msg", status: "stopped", role: "assistant", parentId: undefined });
+      messageRepo.findById.mockResolvedValue(rootMsg);
+      messageRepo.tryStartRegenerate.mockResolvedValue(true);
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("Root response");
+      });
+
+      const stream = await service.regenerate("root-msg", "user-1");
+      await collectStreamEvents(stream);
+
+      expect(messageRepo.findMessageChain).not.toHaveBeenCalled();
+      expect(messageRepo.findByConversation).not.toHaveBeenCalled();
     });
   });
 });
