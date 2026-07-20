@@ -78,10 +78,10 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Branching
-  epic-4: backlog
-  4-1-branch-creation-sibling-under-same-parent: backlog
-  4-2-edit-continues-from-most-recent-sibling: backlog
-  4-3-regenerate-within-a-branch: backlog
+  epic-4: in-progress
+  4-1-branch-creation-sibling-under-same-parent: ready-for-dev
+  4-2-edit-continues-from-most-recent-sibling: ready-for-dev
+  4-3-regenerate-within-a-branch: ready-for-dev
   epic-4-retrospective: optional
 
   # Epic 5: Assets & RAG
