@@ -8,10 +8,12 @@ import type { Message } from "@/types/chat"
 interface ChatWindowProps {
   messages: Message[]
   onSend: (content: string) => void
+  onEdit?: (id: string, newContent: string) => void
+  onRegenerate?: (id: string) => void
   isLoading?: boolean
 }
 
-export function ChatWindow({ messages, onSend, isLoading }: ChatWindowProps) {
+export function ChatWindow({ messages, onSend, onEdit, onRegenerate, isLoading }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -30,9 +32,18 @@ export function ChatWindow({ messages, onSend, isLoading }: ChatWindowProps) {
             </div>
           ) : (
             <>
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
+              {messages.map((message, i) => {
+                const isLatestUserMessage = message.role === 'user' && !messages.slice(i + 1).some(m => m.role === 'user');
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    isLatestUserMessage={isLatestUserMessage}
+                    onEdit={onEdit}
+                    onRegenerate={onRegenerate}
+                  />
+                );
+              })}
               <div ref={bottomRef} />
             </>
           )}

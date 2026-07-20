@@ -5,6 +5,7 @@ export const MessageSchema = z.object({
   conversationId: z.string().uuid(),
   role: z.enum(["user", "assistant", "system"]),
   content: z.string().min(1),
+  status: z.enum(["processing", "complete", "stopped"]).optional(),
   model: z.string().optional(),
   createdAt: z.date(),
 });
