@@ -1,6 +1,8 @@
 import { Conversation } from '../lib/db/entities/conversation.entity';
 import { ConversationRepository } from '../lib/db/repositories/conversation.repository';
 import { generateId } from '../lib/utils';
+import { MessageRepository } from '../lib/db/repositories/message.repository';
+import { Message } from '../lib/db/entities/message.entity';
 
 export interface IConversationService {
   list(userId: string): Promise<Conversation[]>;
@@ -39,7 +41,6 @@ export class ConversationService implements IConversationService {
     const parentConv = await this.getById(id, userId);
     if (!parentConv) throw new Error('Conversation not found');
 
-    const { MessageRepository } = require('../lib/db/repositories/message.repository');
     const msgRepo = new MessageRepository();
 
     const messages = await msgRepo.findByConversation(id, userId);
@@ -67,7 +68,7 @@ export class ConversationService implements IConversationService {
     for (let i = 0; i <= branchPointIndex; i++) {
       const oldMsg = messages[i];
 
-      const newMsg = new (require('../lib/db/entities/message.entity').Message)();
+      const newMsg = new Message();
       newMsg.id = generateId();
       newMsg.conversationId = conv.id;
       newMsg.userId = userId;
@@ -77,7 +78,7 @@ export class ConversationService implements IConversationService {
       newMsg.model = oldMsg.model;
       newMsg.parentId = oldMsg.parentId ? (oldIdToNewId.get(oldMsg.parentId) || null) : null;
 
-      await msgRepo.save(newMsg);
+      await msgRepo.save(newMsg as Message);
       oldIdToNewId.set(oldMsg.id, newMsg.id);
       lastCopiedId = newMsg.id;
     }
