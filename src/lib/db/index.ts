@@ -1,16 +1,20 @@
 import "reflect-metadata"
 import { DataSource } from "typeorm"
-import { Conversation } from "./entities/conversation.entity"
-import { Message } from "./entities/message.entity"
 
 export const AppDataSource = new DataSource({
-  type: "sqlite",
-  database: "./chaiGPT.db",
-  synchronize: true,
+  type: "postgres",
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "5432", 10),
+  database: process.env.DB_NAME || "chaigpt",
+  username: process.env.DB_USER || "chaigpt",
+  password: process.env.DB_PASSWORD || "chaigpt",
+  synchronize: false,
   logging: false,
-  entities: [Conversation, Message],
-  migrations: [],
+  entities: ["src/lib/db/entities/*.entity.ts"],
+  migrations: ["src/lib/db/migrations/*.ts"],
 })
+
+export default AppDataSource
 
 export async function initializeDatabase() {
   if (AppDataSource.isInitialized) {

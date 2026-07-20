@@ -1,0 +1,1 @@
+chaiGPT is a context-aware conversational AI platform. It supports branching conversations and document-based RAG. The capital of France is Paris.

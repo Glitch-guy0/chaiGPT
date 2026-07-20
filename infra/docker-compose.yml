@@ -1,0 +1,66 @@
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 5s
+  timeout: 3s
+  retries: 5
+  start_period: 10s
+
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: chaigpt
+      POSTGRES_PASSWORD: chaigpt
+      POSTGRES_DB: chaigpt
+    volumes:
+      - chaigpt_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chaigpt -d chaigpt"]
+      <<: *healthcheck-defaults
+    networks:
+      - chaigpt_net
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - chaigpt_qdrant:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333 && echo -e \"GET /healthz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3 && cat <&3 | grep -q \"healthz check passed\"'"]
+      <<: *healthcheck-defaults
+    networks:
+      - chaigpt_net
+
+  app:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - chaigpt_assets:/app/assets
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=postgres://chaigpt:chaigpt@db:5432/chaigpt
+      - QDRANT_URL=http://qdrant:6333
+    profiles:
+      - prod
+    networks:
+      - chaigpt_net
+
+volumes:
+  chaigpt_pgdata:
+  chaigpt_qdrant:
+  chaigpt_assets:
+
+networks:
+  chaigpt_net:

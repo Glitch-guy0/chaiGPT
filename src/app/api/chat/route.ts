@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth/session"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
   try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
 
     const { getDatabase } = await import("@/lib/db")
@@ -33,13 +40,14 @@ export async function POST(request: Request) {
 
     if (conversationId) {
       conversation = await conversationRepo.findOne({
-        where: { id: conversationId },
+        where: { id: conversationId, userId },
       })
       if (!conversation) {
         return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
       }
     } else {
       conversation = conversationRepo.create({
+        userId,
         title: incomingMessages[0]?.content.slice(0, 50) || "New Chat",
       })
       conversation = await conversationRepo.save(conversation)

@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth/session"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
   try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { getDatabase } = await import("@/lib/db")
     const { Conversation } = await import("@/lib/db/entities/conversation.entity")
 
     const db = await getDatabase()
     const conversations = await db.getRepository(Conversation).find({
+      where: { userId },
       order: { updatedAt: "DESC" },
       take: 50,
     })
@@ -20,15 +28,24 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json().catch(() => ({}))
+
     const { getDatabase } = await import("@/lib/db")
     const { Conversation } = await import("@/lib/db/entities/conversation.entity")
 
     const db = await getDatabase()
     const repo = db.getRepository(Conversation)
     const conversation = repo.create({
-      title: "New Chat",
+      userId,
+      title: body?.title || "New Chat",
     })
     const saved = await repo.save(conversation)
     return NextResponse.json(saved, { status: 201 })
