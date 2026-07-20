@@ -1,0 +1,11 @@
+{
+  "type": "postgres",
+  "url": "postgres://postgres:postgres@localhost:5432/chaigpt",
+  "synchronize": false,
+  "logging": false,
+  "entities": ["src/lib/db/entities/*.ts"],
+  "migrations": ["src/schema/migrations/*.ts"],
+  "cli": {
+    "migrationsDir": "src/schema/migrations"
+  }
+}

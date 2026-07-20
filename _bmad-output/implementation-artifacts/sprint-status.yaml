@@ -51,33 +51,33 @@ development_status:
   # All epics, stories, and retrospectives in order
 
   # --- Epic 1: Types and Contracts ---
-  epic-1: in-progress
-  1-1-entity-type-definitions: ready-for-dev
-  1-2-repository-service-interfaces: ready-for-dev
-  1-3-integration-module-interfaces: ready-for-dev
-  1-4-zod-schemas-shared-types: ready-for-dev
-  epic-1-retrospective: optional
+  epic-1: done
+  1-1-entity-type-definitions: done
+  1-2-repository-service-interfaces: done
+  1-3-integration-module-interfaces: done
+  1-4-zod-schemas-shared-types: done
+  epic-1-retrospective: done
 
   # --- Epic 2: Foundation and Infra ---
-  epic-2: in-progress
-  2-1-dockerized-infra: ready-for-dev
-  2-2-postgres-datasource-migrations: ready-for-dev
-  2-3-clerk-auth-middleware: ready-for-dev
-  2-4-layered-package-skeleton: ready-for-dev
-  2-5-testing-foundation: ready-for-dev
-  2-6-e2e-test-harness: ready-for-dev
-  epic-2-retrospective: optional
+  epic-2: done
+  2-1-dockerized-infra: done
+  2-2-postgres-datasource-migrations: done
+  2-3-clerk-auth-middleware: done
+  2-4-layered-package-skeleton: done
+  2-5-testing-foundation: done
+  2-6-e2e-test-harness: done
+  epic-2-retrospective: done
 
   # --- Epic 3: Conversation and Message Core ---
-  epic-3: in-progress
-  3-1-concrete-entities-repositories: ready-for-dev
-  3-2-conversation-service: ready-for-dev
-  3-3-chat-service-sse-stream: ready-for-dev
-  3-4-ai-provider-streaming: ready-for-dev
-  3-5-message-editing: ready-for-dev
-  3-6-regenerate-stopped: ready-for-dev
-  3-7-char-limit-large-paste: ready-for-dev
-  epic-3-retrospective: optional
+  epic-3: done
+  3-1-concrete-entities-repositories: done
+  3-2-conversation-service: done
+  3-3-chat-service-sse-stream: done
+  3-4-ai-provider-streaming: done
+  3-5-message-editing: done
+  3-6-regenerate-stopped: done
+  3-7-char-limit-large-paste: done
+  epic-3-retrospective: done
 
   # --- Epic 4: Branching ---
   epic-4: in-progress
@@ -106,8 +106,8 @@ development_status:
   epic-6-retrospective: optional
 
   # --- Epic 7: Web Search (Jina API + LangChain Tool) ---
-  epic-7: in-progress
-  7-1-jina-web-search-client: ready-for-dev
-  7-2-web-search-tool: ready-for-dev
-  7-3-web-context-injection: ready-for-dev
-  epic-7-retrospective: optional
+  epic-7: done
+  7-1-jina-web-search-client: done
+  7-2-web-search-tool: done
+  7-3-web-context-injection: done
+  epic-7-retrospective: done
