@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-20
-last_updated: 2026-07-20T22:11:00Z
+last_updated: 2026-07-20T23:23:00Z
 project: chaiGPT
 project_key: NOKEY
 tracking_system: file-system
@@ -67,15 +67,15 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: Conversation & Message Core
-  epic-3: in-progress
-  3-1-concrete-entities-typeorm-repositories: ready-for-dev
-  3-2-conversationservice-list-create-getbyid: ready-for-dev
-  3-3-chatservice-send-with-sse-stream-status-lifecycle: ready-for-dev
-  3-4-aiprovider-concrete-module-streaming: ready-for-dev
-  3-5-message-editing-edit-latest-in-place: ready-for-dev
-  3-6-regenerate-stopped-message-re-run-same-id: ready-for-dev
-  3-7-500-char-limit-large-paste-to-txt: ready-for-dev
-  epic-3-retrospective: optional
+  epic-3: done
+  3-1-concrete-entities-typeorm-repositories: done
+  3-2-conversationservice-list-create-getbyid: done
+  3-3-chatservice-send-with-sse-stream-status-lifecycle: done
+  3-4-aiprovider-concrete-module-streaming: done
+  3-5-message-editing-edit-latest-in-place: done
+  3-6-regenerate-stopped-message-re-run-same-id: done
+  3-7-500-char-limit-large-paste-to-txt: done
+  epic-3-retrospective: done
 
   # Epic 4: Branching
   epic-4: backlog

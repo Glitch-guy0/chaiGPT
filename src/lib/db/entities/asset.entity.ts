@@ -1,25 +1,36 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Conversation } from './conversation.entity';
 
 @Entity('assets')
 export class Asset {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  userId: string;
+  userId!: string;
 
   @Column()
-  conversationId: string;
+  conversationId!: string;
 
   @Column()
-  filename: string;
+  filename!: string;
 
   @Column()
-  mime: string;
+  mime!: string;
 
   @Column()
-  path: string;
+  path!: string;
+
+  @Column({ type: 'text', nullable: true })
+  text?: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
+  @ManyToOne(() => Conversation, conversation => conversation.assets)
+  @JoinColumn({ name: 'conversationId' })
+  conversation?: Conversation;
 }

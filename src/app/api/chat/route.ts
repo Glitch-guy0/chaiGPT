@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth/session"
+import { ChatServiceImpl } from "@/services/chat.service"
+import { AssetRepositoryImpl } from "@/lib/db/repositories/asset.repository"
+import { ConversationRepositoryImpl } from "@/lib/db/repositories/conversation.repository"
+import { MessageRepositoryImpl } from "@/lib/db/repositories/message.repository"
+import { OpenAiProvider } from "@/lib/ai/langchain"
+import { NotFoundError } from "@/lib/errors"
+import { ChatRequestSchema } from "@/lib/validation/schemas"
+import { getDatabase } from "@/lib/db"
+import { ZodError } from "zod"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,107 +22,50 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    const parsed = ChatRequestSchema.safeParse(body)
 
-    const { getDatabase } = await import("@/lib/db")
-    const { Conversation } = await import("@/lib/db/entities/conversation.entity")
-    const { Message } = await import("@/lib/db/entities/message.entity")
-    const { langChainService } = await import("@/lib/ai/langchain")
-    const { ChatRequestSchema } = await import("@/lib/validation/schemas")
-
-    await getDatabase()
-
-    const validation = ChatRequestSchema.safeParse(body)
-
-    if (!validation.success) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: validation.error.issues },
-        { status: 400 }
+        { error: "Invalid request", details: parsed.error.issues },
+        { status: 400 },
       )
     }
 
-    const { messages: incomingMessages, model, conversationId } = validation.data
-    const db = await getDatabase()
-    const conversationRepo = db.getRepository(Conversation)
-    const messageRepo = db.getRepository(Message)
+    const ds = await getDatabase()
+    const conversationRepo = new ConversationRepositoryImpl(ds)
+    const messageRepo = new MessageRepositoryImpl(ds)
+    const assetRepo = new AssetRepositoryImpl(ds)
+    const aiProvider = new OpenAiProvider()
 
-    let conversation: ReturnType<typeof conversationRepo.create> | null = null
+    const chatService = new ChatServiceImpl(
+      conversationRepo,
+      messageRepo,
+      aiProvider,
+      assetRepo,
+      undefined, // qdrantStore — wire when Story 5.3 lands
+      undefined, // redisCache — wire when Story 5.4 lands
+    )
 
-    if (conversationId) {
-      conversation = await conversationRepo.findOne({
-        where: { id: conversationId, userId },
-      })
-      if (!conversation) {
-        return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
-      }
-    } else {
-      conversation = conversationRepo.create({
-        userId,
-        title: incomingMessages[0]?.content.slice(0, 50) || "New Chat",
-      })
-      conversation = await conversationRepo.save(conversation)
-    }
-
-    const lastUserMessage = incomingMessages[incomingMessages.length - 1]
-    const userMessage = messageRepo.create({
-      conversationId: conversation.id,
-      role: "user" as const,
-      content: lastUserMessage.content,
-    })
-    await messageRepo.save(userMessage)
-
-    const allMessages = await messageRepo.find({
-      where: { conversationId: conversation.id },
-      order: { createdAt: "ASC" },
-    })
-
-    const langchainMessages = allMessages.map((msg) => ({
-      role: msg.role as "user" | "assistant" | "system",
-      content: msg.content,
-    }))
-
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          const assistantContent = await langChainService.complete(langchainMessages)
-
-          const assistantMessage = messageRepo.create({
-            conversationId: conversation!.id,
-            role: "assistant" as const,
-            content: assistantContent,
-            model,
-          })
-          await messageRepo.save(assistantMessage)
-
-          const responseData = {
-            id: crypto.randomUUID(),
-            content: assistantContent,
-            conversationId: conversation!.id,
-          }
-
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(responseData)}\n\n`)
-          )
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"))
-          controller.close()
-        } catch (error) {
-          console.error("Stream error:", error)
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: "Stream failed" })}\n\n`)
-          )
-          controller.close()
-        }
-      },
-    })
+    const stream = await chatService.send(parsed.data, userId)
 
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     })
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 })
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request", details: error.issues },
+        { status: 400 },
+      )
+    }
     console.error("Chat API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
