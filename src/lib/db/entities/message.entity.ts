@@ -24,7 +24,7 @@ export class Message {
   parent!: Message;
 
   @Column({ type: 'uuid', nullable: true })
-  parentId!: string;
+  parentId!: string | null;
 
   @Column({ type: 'varchar' })
   role!: Role;

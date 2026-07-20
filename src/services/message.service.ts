@@ -64,7 +64,8 @@ export class MessageService implements IMessageService {
     }
 
     // Ensure it's not branched - we can assume if it's the latest, it's the leaf for now
-    // according to the story requirements.
+    // according to the story requirements. Because branches create new conversations,
+    // siblings or children of older messages are not in this conversation array at all.
 
     latestUserMsg.content = content;
     await this.repo.save(latestUserMsg);
