@@ -1,22 +1,34 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm"
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
-@Entity()
+@Entity('conversations')
 export class Conversation {
-  @PrimaryGeneratedColumn("uuid")
-  id!: string
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
-  title!: string
+  userId: string;
 
   @Column({ nullable: true })
-  model?: string
+  rootConversationId?: string;
+
+  @Column({ nullable: true })
+  lastMessageId?: string;
+
+  @Column()
+  title: string;
+
+  @Column({ nullable: true })
+  model?: string;
 
   @CreateDateColumn()
-  createdAt!: Date
+  createdAt: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date
-
-  @OneToMany("Message", "conversation")
-  messages!: unknown[]
+  updatedAt: Date;
 }

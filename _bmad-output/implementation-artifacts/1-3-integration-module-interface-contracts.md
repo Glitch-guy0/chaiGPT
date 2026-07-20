@@ -1,6 +1,9 @@
+---
+baseline_commit: 0169a4cd615e3e4e8e31d00c3f96a2681fb08144
+---
 # Story 1.3: Integration Module Interface Contracts
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -122,7 +125,7 @@ so that services depend on interfaces, not concrete providers.
 
 ### Agent Model Used
 
-TBD (populated by dev agent)
+Claude Haiku 4.5 (user model preference)
 
 ### Debug Log References
 

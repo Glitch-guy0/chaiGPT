@@ -1,6 +1,10 @@
+---
+baseline_commit: 0169a4cd615e3e4e8e31d00c3f96a2681fb08144
+---
+
 # Story 1.1: Entity Type & TypeORM Decorator Definitions
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -21,42 +25,42 @@ so that every later epic programs against a fixed data model.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `src/lib/db/entities/conversation.entity.ts` (AC: #1, #5, #6)
-  - [ ] Declare `@Entity()` class `Conversation` with `@PrimaryGeneratedColumn("uuid") id: string`
-  - [ ] Add `@Column() userId: string`
-  - [ ] Add `@Column({ nullable: true }) rootConversationId?: string`
-  - [ ] Add `@Column({ nullable: true }) lastMessageId?: string`
-  - [ ] Add `@Column() title: string`
-  - [ ] Add `@Column({ nullable: true }) model?: string`
-  - [ ] Add `@CreateDateColumn() createdAt: Date`
-  - [ ] Add `@UpdateDateColumn() updatedAt: Date`
-  - [ ] No methods, no repository/service logic in this file
-- [ ] Task 2: Create `src/lib/db/entities/message.entity.ts` (AC: #2, #4, #5, #6)
-  - [ ] Declare `@Entity()` class `Message` with `@PrimaryGeneratedColumn("uuid") id: string`
-  - [ ] Add `@Column() conversationId: string`
-  - [ ] Add `@Column() userId: string`
-  - [ ] Add `@Column({ nullable: true }) parentId?: string`
-  - [ ] Add `@Column({ type: "varchar" }) role: "user" | "assistant" | "system"`
-  - [ ] Add `@Column({ type: "text" }) content: string`
-  - [ ] Add `@Column({ nullable: true }) model?: string`
-  - [ ] Add `@Column({ type: "varchar" }) status: MessageStatus`
-  - [ ] Add `@CreateDateColumn() createdAt: Date`
-  - [ ] No methods, no repository/service logic in this file
-- [ ] Task 3: Create `src/lib/db/entities/asset.entity.ts` (AC: #3, #5, #6)
-  - [ ] Declare `@Entity()` class `Asset` with `@PrimaryGeneratedColumn("uuid") id: string`
-  - [ ] Add `@Column() userId: string`
-  - [ ] Add `@Column() conversationId: string`
-  - [ ] Add `@Column() filename: string`
-  - [ ] Add `@Column() mime: string`
-  - [ ] Add `@Column() path: string`
-  - [ ] Add `@CreateDateColumn() createdAt: Date`
-  - [ ] No methods, no repository/service logic in this file
-- [ ] Task 4: Define the `MessageStatus` union type (AC: #4)
-  - [ ] Define `export type MessageStatus = "processing" | "complete" | "stopped";` colocated in `message.entity.ts` (or a shared location if a `types/` convention emerges later — colocate for now since no other consumer exists yet in Epic 1)
-  - [ ] Reference `MessageStatus` as the type for `Message.status`
-- [ ] Task 5: Verify directory structure matches architecture (AC: #6)
-  - [ ] Confirm/create `src/lib/db/entities/` directory (do not create `repositories/`, `migrations/`, or `data-source.ts` — those belong to later stories: 3.1 for repositories, 2.2 for DataSource/migrations)
-  - [ ] Do not wire entities into a DataSource or migration in this story — that is Story 2.2/3.1 scope
+- [x] Task 1: Create `src/lib/db/entities/conversation.entity.ts` (AC: #1, #5, #6)
+  - [x] Declare `@Entity()` class `Conversation` with `@PrimaryGeneratedColumn("uuid") id: string`
+  - [x] Add `@Column() userId: string`
+  - [x] Add `@Column({ nullable: true }) rootConversationId?: string`
+  - [x] Add `@Column({ nullable: true }) lastMessageId?: string`
+  - [x] Add `@Column() title: string`
+  - [x] Add `@Column({ nullable: true }) model?: string`
+  - [x] Add `@CreateDateColumn() createdAt: Date`
+  - [x] Add `@UpdateDateColumn() updatedAt: Date`
+  - [x] No methods, no repository/service logic in this file
+- [x] Task 2: Create `src/lib/db/entities/message.entity.ts` (AC: #2, #4, #5, #6)
+  - [x] Declare `@Entity()` class `Message` with `@PrimaryGeneratedColumn("uuid") id: string`
+  - [x] Add `@Column() conversationId: string`
+  - [x] Add `@Column() userId: string`
+  - [x] Add `@Column({ nullable: true }) parentId?: string`
+  - [x] Add `@Column({ type: "varchar" }) role: "user" | "assistant" | "system"`
+  - [x] Add `@Column({ type: "text" }) content: string`
+  - [x] Add `@Column({ nullable: true }) model?: string`
+  - [x] Add `@Column({ type: "varchar" }) status: MessageStatus`
+  - [x] Add `@CreateDateColumn() createdAt: Date`
+  - [x] No methods, no repository/service logic in this file
+- [x] Task 3: Create `src/lib/db/entities/asset.entity.ts` (AC: #3, #5, #6)
+  - [x] Declare `@Entity()` class `Asset` with `@PrimaryGeneratedColumn("uuid") id: string`
+  - [x] Add `@Column() userId: string`
+  - [x] Add `@Column() conversationId: string`
+  - [x] Add `@Column() filename: string`
+  - [x] Add `@Column() mime: string`
+  - [x] Add `@Column() path: string`
+  - [x] Add `@CreateDateColumn() createdAt: Date`
+  - [x] No methods, no repository/service logic in this file
+- [x] Task 4: Define the `MessageStatus` union type (AC: #4)
+  - [x] Define `export type MessageStatus = "processing" | "complete" | "stopped";` colocated in `message.entity.ts` (or a shared location if a `types/` convention emerges later — colocate for now since no other consumer exists yet in Epic 1)
+  - [x] Reference `MessageStatus` as the type for `Message.status`
+- [x] Task 5: Verify directory structure matches architecture (AC: #6)
+  - [x] Confirm/create `src/lib/db/entities/` directory (do not create `repositories/`, `migrations/`, or `data-source.ts` — those belong to later stories: 3.1 for repositories, 2.2 for DataSource/migrations)
+  - [x] Do not wire entities into a DataSource or migration in this story — that is Story 2.2/3.1 scope
 
 ## Dev Notes
 
@@ -105,10 +109,25 @@ so that every later epic programs against a fixed data model.
 
 ### Agent Model Used
 
-TBD (populated by dev agent)
+Claude Haiku 4.5 (user model preference)
 
 ### Debug Log References
 
+No build/test failures. All entity classes validated against AC. TypeORM decorators applied per 07-entity.md ER diagram and 02-class.md domain model.
+
 ### Completion Notes List
 
+✅ Created Conversation entity (8 fields, PK uuid, @UpdateDateColumn for updatedAt)
+✅ Created Message entity (9 fields including MessageStatus union type discriminator)
+✅ Created Asset entity (7 fields, PK uuid, simple audit timestamp)
+✅ MessageStatus type defined in message.entity.ts: 'processing' | 'complete' | 'stopped'
+✅ Established src/lib/db/entities/ directory structure (no data-source.ts, migrations, or repositories per Epic 1 scope)
+✅ All 6 acceptance criteria satisfied; no deviations from story spec
+✅ Zero dependencies between entity files and application logic (pure persistence layer)
+
 ### File List
+
+- src/lib/db/entities/conversation.entity.ts (NEW)
+- src/lib/db/entities/message.entity.ts (NEW)
+- src/lib/db/entities/asset.entity.ts (NEW)
+- src/lib/db/entities/index.ts (NEW — barrel export for all entities and MessageStatus type)

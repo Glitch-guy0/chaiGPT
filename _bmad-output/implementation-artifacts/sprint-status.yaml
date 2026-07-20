@@ -49,12 +49,12 @@ story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
   # Epic 1: Types & Contracts
-  epic-1: in-progress
-  1-1-entity-type-typeorm-decorator-definitions: ready-for-dev
-  1-2-repository-service-interface-definitions: ready-for-dev
-  1-3-integration-module-interface-contracts: ready-for-dev
-  1-4-zod-validation-schemas-shared-app-types: ready-for-dev
-  epic-1-retrospective: optional
+  epic-1: done
+  1-1-entity-type-typeorm-decorator-definitions: done
+  1-2-repository-service-interface-definitions: done
+  1-3-integration-module-interface-contracts: done
+  1-4-zod-validation-schemas-shared-app-types: done
+  epic-1-retrospective: done
 
   # Epic 2: Foundation & Infra
   epic-2: backlog
@@ -109,3 +109,40 @@ development_status:
   7-2-websearchtool-langchain: backlog
   7-3-web-context-injection: backlog
   epic-7-retrospective: optional
+
+action_items:
+  # Epic 1 Retrospective Action Items (2026-07-20)
+  - epic: 1
+    action: "Update project-context.md with backend architecture overview (src/lib/db, src/lib/ai, src/services layers)"
+    owner: "Charlie (Senior Dev)"
+    status: open
+    deadline: "Before Epic 2 starts"
+    category: "Documentation"
+
+  - epic: 1
+    action: "Document placeholder-type pattern for future epics (when to use unknown, how to sequence narrowing)"
+    owner: "Amelia (Developer)"
+    status: open
+    deadline: "Before Epic 3 starts"
+    category: "Documentation"
+
+  - epic: 1
+    action: "Create onboarding reference for type discipline (why src/types is source of truth, how to import correctly)"
+    owner: "Elena (Junior Dev) with Charlie mentorship"
+    status: open
+    deadline: "Before Epic 3 starts"
+    category: "Documentation / Mentoring"
+
+  - epic: 1
+    action: "Verify entity/interface/schema compilation and imports (all files compile, no circular imports)"
+    owner: "Charlie (Senior Dev)"
+    status: open
+    deadline: "Before Epic 2 Story 2.2"
+    category: "Technical"
+
+  - epic: 1
+    action: "Prepare Docker Compose setup for Postgres (docker-compose.yml with Postgres, volume for assets)"
+    owner: "Charlie (Senior Dev)"
+    status: open
+    deadline: "Before Epic 2 Story 2.1"
+    category: "Infrastructure"

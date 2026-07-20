@@ -1,6 +1,9 @@
+---
+baseline_commit: 0169a4cd615e3e4e8e31d00c3f96a2681fb08144
+---
 # Story 1.4: Zod Validation Schemas & Shared App Types
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -141,7 +144,7 @@ class Role {
 
 ### Agent Model Used
 
-TBD (populated by dev agent)
+Claude Haiku 4.5 (user model preference)
 
 ### Debug Log References
 

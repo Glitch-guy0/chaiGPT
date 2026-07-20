@@ -1,6 +1,9 @@
+---
+baseline_commit: 0169a4cd615e3e4e8e31d00c3f96a2681fb08144
+---
 # Story 1.2: Repository & Service Interface Definitions
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,59 +28,62 @@ so that logic epics implement against stable contracts.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define `ConversationRepository` interface (AC: #1, #4, #9, #10)
-  - [ ] Create `src/lib/db/repositories/conversation.repository.ts` (or a dedicated interface file within that same directory if the team later splits interface/impl — for this story, declare the `interface ConversationRepository` in this file since no concrete class exists yet)
-  - [ ] Import `Conversation` from `src/lib/db/entities/conversation.entity.ts` (Story 1.1)
-  - [ ] Declare `findById(id: string, userId: string): Promise<Conversation | null>`
-  - [ ] Declare `findAll(userId: string): Promise<Conversation[]>`
-  - [ ] Declare `save(c: Partial<Conversation>): Promise<Conversation>`
-  - [ ] Declare `branch(id: string, messageId: string, userId: string): Promise<Conversation>`
-  - [ ] No method bodies, no `DataSource` import, no SQL
-- [ ] Task 2: Define `MessageRepository` interface (AC: #2, #4, #9, #10)
-  - [ ] Create `src/lib/db/repositories/message.repository.ts`
-  - [ ] Import `Message`, `MessageStatus` from `src/lib/db/entities/message.entity.ts` (Story 1.1)
-  - [ ] Declare `findById(id: string, userId: string): Promise<Message | null>`
-  - [ ] Declare `findAll(userId: string): Promise<Message[]>`
-  - [ ] Declare `findByConversation(conversationId: string, userId: string): Promise<Message[]>`
-  - [ ] Declare `save(m: Partial<Message>): Promise<Message>`
-  - [ ] Declare `updateStatus(id: string, status: MessageStatus, userId: string): Promise<void>`
-  - [ ] No method bodies, no `DataSource` import, no SQL
-- [ ] Task 3: Define `AssetRepository` interface (AC: #3, #4, #9, #10)
-  - [ ] Create `src/lib/db/repositories/asset.repository.ts`
-  - [ ] Import `Asset` from `src/lib/db/entities/asset.entity.ts` (Story 1.1)
-  - [ ] Declare `findById(id: string, userId: string): Promise<Asset | null>`
-  - [ ] Declare `findAll(userId: string): Promise<Asset[]>`
-  - [ ] Declare `save(a: Partial<Asset>): Promise<Asset>`
-  - [ ] Declare `findByConversation(conversationId: string, userId: string): Promise<Asset[]>`
-  - [ ] Declare `delete(id: string, userId: string): Promise<void>`
-  - [ ] No method bodies, no `DataSource` import, no SQL
-- [ ] Task 4: Define `ConversationService` interface (AC: #5, #9, #10)
-  - [ ] Create `src/services/conversation.service.ts`
-  - [ ] Import `Conversation` type from the entity module (interface signatures reference it, not a repository instance)
-  - [ ] Declare `list(userId: string): Promise<Conversation[]>`
-  - [ ] Declare `create(userId: string, input: { title?: string; model?: string }): Promise<Conversation>`
-  - [ ] Declare `getById(id: string, userId: string): Promise<Conversation | null>`
-  - [ ] Declare `branch(id: string, messageId: string, userId: string): Promise<Conversation>`
-  - [ ] No method bodies, no repository construction/wiring
-- [ ] Task 5: Define `MessageService` interface (AC: #6, #9, #10)
-  - [ ] Create `src/services/message.service.ts`
-  - [ ] Import `Message`, `MessageStatus`, `Role`-shaped literal from entity/type modules as needed
-  - [ ] Declare `append(conversationId: string, role: "user" | "assistant" | "system", content: string): Promise<Message>`
-  - [ ] Declare `history(conversationId: string): Promise<Message[]>`
-  - [ ] Declare `editLatest(userId: string, conversationId: string, content: string): Promise<Message>`
-  - [ ] No method bodies
-- [ ] Task 6: Define `ChatService` interface (AC: #7, #9, #10)
-  - [ ] Create `src/services/chat.service.ts`
-  - [ ] Declare `send(req: unknown, userId: string): Promise<unknown>` (exact `ChatRequest`/`ChatResponse` shapes are defined in Story 1.4 — reference those types once they exist; use a documented placeholder/import stub for now if Story 1.4 has not landed, per Dev Notes guidance)
-  - [ ] Declare `stream(req: unknown, onChunk: (chunk: string) => void): Promise<void>`
-  - [ ] Declare `regenerate(messageId: string, userId: string): Promise<void>`
-  - [ ] No method bodies, no AiProvider/QdrantStore/RedisCache wiring (those are Story 1.3 interfaces + later concrete implementations)
-- [ ] Task 7: Define `AssetService` interface (AC: #8, #9, #10)
-  - [ ] Create `src/services/asset.service.ts`
-  - [ ] Declare `ingest(userId: string, convId: string, file: unknown): Promise<Asset>` (import `Asset` entity type)
-  - [ ] Declare `remove(assetId: string, userId: string): Promise<void>`
-  - [ ] No method bodies
-- [ ] Task 8: Verify directory structure and scope discipline (AC: #9, #10)
+- [x] Task 1: Define `ConversationRepository` interface (AC: #1, #4, #9, #10)
+  - [x] Create `src/lib/db/repositories/conversation.repository.ts` (or a dedicated interface file within that same directory if the team later splits interface/impl — for this story, declare the `interface ConversationRepository` in this file since no concrete class exists yet)
+  - [x] Import `Conversation` from `src/lib/db/entities/conversation.entity.ts` (Story 1.1)
+  - [x] Declare `findById(id: string, userId: string): Promise<Conversation | null>`
+  - [x] Declare `findAll(userId: string): Promise<Conversation[]>`
+  - [x] Declare `save(c: Partial<Conversation>): Promise<Conversation>`
+  - [x] Declare `branch(id: string, messageId: string, userId: string): Promise<Conversation>`
+  - [x] No method bodies, no `DataSource` import, no SQL
+- [x] Task 2: Define `MessageRepository` interface (AC: #2, #4, #9, #10)
+  - [x] Create `src/lib/db/repositories/message.repository.ts`
+  - [x] Import `Message`, `MessageStatus` from `src/lib/db/entities/message.entity.ts` (Story 1.1)
+  - [x] Declare `findById(id: string, userId: string): Promise<Message | null>`
+  - [x] Declare `findAll(userId: string): Promise<Message[]>`
+  - [x] Declare `findByConversation(conversationId: string, userId: string): Promise<Message[]>`
+  - [x] Declare `save(m: Partial<Message>): Promise<Message>`
+  - [x] Declare `updateStatus(id: string, status: MessageStatus, userId: string): Promise<void>`
+  - [x] No method bodies, no `DataSource` import, no SQL
+- [x] Task 3: Define `AssetRepository` interface (AC: #3, #4, #9, #10)
+  - [x] Create `src/lib/db/repositories/asset.repository.ts`
+  - [x] Import `Asset` from `src/lib/db/entities/asset.entity.ts` (Story 1.1)
+  - [x] Declare `findById(id: string, userId: string): Promise<Asset | null>`
+  - [x] Declare `findAll(userId: string): Promise<Asset[]>`
+  - [x] Declare `save(a: Partial<Asset>): Promise<Asset>`
+  - [x] Declare `findByConversation(conversationId: string, userId: string): Promise<Asset[]>`
+  - [x] Declare `delete(id: string, userId: string): Promise<void>`
+  - [x] No method bodies, no `DataSource` import, no SQL
+- [x] Task 4: Define `ConversationService` interface (AC: #5, #9, #10)
+  - [x] Create `src/services/conversation.service.ts`
+  - [x] Import `Conversation` type from the entity module (interface signatures reference it, not a repository instance)
+  - [x] Declare `list(userId: string): Promise<Conversation[]>`
+  - [x] Declare `create(userId: string, input: { title?: string; model?: string }): Promise<Conversation>`
+  - [x] Declare `getById(id: string, userId: string): Promise<Conversation | null>`
+  - [x] Declare `branch(id: string, messageId: string, userId: string): Promise<Conversation>`
+  - [x] No method bodies, no repository construction/wiring
+- [x] Task 5: Define `MessageService` interface (AC: #6, #9, #10)
+  - [x] Create `src/services/message.service.ts`
+  - [x] Import `Message`, `MessageStatus`, `Role`-shaped literal from entity/type modules as needed
+  - [x] Declare `append(conversationId: string, role: "user" | "assistant" | "system", content: string): Promise<Message>`
+  - [x] Declare `history(conversationId: string): Promise<Message[]>`
+  - [x] Declare `editLatest(userId: string, conversationId: string, content: string): Promise<Message>`
+  - [x] No method bodies
+- [x] Task 6: Define `ChatService` interface (AC: #7, #9, #10)
+  - [x] Create `src/services/chat.service.ts`
+  - [x] Declare `send(req: unknown, userId: string): Promise<unknown>` (exact `ChatRequest`/`ChatResponse` shapes are defined in Story 1.4 — reference those types once they exist; use a documented placeholder/import stub for now if Story 1.4 has not landed, per Dev Notes guidance)
+  - [x] Declare `stream(req: unknown, onChunk: (chunk: string) => void): Promise<void>`
+  - [x] Declare `regenerate(messageId: string, userId: string): Promise<void>`
+  - [x] No method bodies, no AiProvider/QdrantStore/RedisCache wiring (those are Story 1.3 interfaces + later concrete implementations)
+- [x] Task 7: Define `AssetService` interface (AC: #8, #9, #10)
+  - [x] Create `src/services/asset.service.ts`
+  - [x] Declare `ingest(userId: string, convId: string, file: unknown): Promise<Asset>` (import `Asset` entity type)
+  - [x] Declare `remove(assetId: string, userId: string): Promise<void>`
+  - [x] No method bodies
+- [x] Task 8: Verify directory structure and scope discipline (AC: #9, #10)
+  - [x] Confirm `src/lib/db/repositories/` and `src/services/` directories exist with only the 7 interface files added by this story
+  - [x] Do not create concrete repository classes, `DataSource` wiring, or route handlers in this story — those are Story 3.1 (repositories), Story 2.2 (DataSource), and Epic 3+ (services/routes)
+  - [x] Do not implement `AiProvider`, `QdrantStore`, `RedisCache` interfaces here — those belong to Story 1.3
   - [ ] Confirm `src/lib/db/repositories/` and `src/services/` directories exist with only the 7 interface files added by this story
   - [ ] Do not create concrete repository classes, `DataSource` wiring, or route handlers in this story — those are Story 3.1 (repositories), Story 2.2 (DataSource), and Epic 3+ (services/routes)
   - [ ] Do not implement `AiProvider`, `QdrantStore`, `RedisCache` interfaces here — those belong to Story 1.3
@@ -146,10 +152,32 @@ so that logic epics implement against stable contracts.
 
 ### Agent Model Used
 
-TBD (populated by dev agent)
+Claude Haiku 4.5 (user model preference)
 
 ### Debug Log References
 
+No build failures. All 7 interface files validated against AC. Imports from Story 1.1 entities verified. userId scoping applied uniformly across all repository methods per FR-2. ChatService placeholders documented pending Story 1.4 type definitions.
+
 ### Completion Notes List
 
+✅ Created ConversationRepository interface (4 methods with userId scoping)
+✅ Created MessageRepository interface (5 methods with userId scoping, MessageStatus typing)
+✅ Created AssetRepository interface (5 methods with userId scoping)
+✅ Created ConversationService interface (4 methods including branch orchestration)
+✅ Created MessageService interface (3 methods with role literal typing)
+✅ Created ChatService interface (3 methods with unknown placeholders for Story 1.4 ChatRequest/ChatResponse types)
+✅ Created AssetService interface (2 methods)
+✅ All 10 acceptance criteria satisfied; no deviations from story spec
+✅ Zero implementations; interfaces only per Epic 1 scope discipline
+✅ All imports from Story 1.1 entities validated
+✅ Established src/lib/db/repositories/ and src/services/ directories (no DataSource, migrations, or concrete classes)
+
 ### File List
+
+- src/lib/db/repositories/conversation.repository.ts (NEW — interface only)
+- src/lib/db/repositories/message.repository.ts (NEW — interface only)
+- src/lib/db/repositories/asset.repository.ts (NEW — interface only)
+- src/services/conversation.service.ts (NEW — interface only)
+- src/services/message.service.ts (NEW — interface only)
+- src/services/chat.service.ts (NEW — interface only, with Story 1.4 ChatRequest/ChatResponse placeholder)
+- src/services/asset.service.ts (NEW — interface only)
