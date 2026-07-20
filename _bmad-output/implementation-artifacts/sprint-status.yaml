@@ -64,7 +64,7 @@ development_status:
   2-4-layered-package-skeleton: review
   2-5-testing-foundation-vitest-coverage-gate: review
   2-6-e2e-test-harness-playwright-docker-compose: review
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   # Epic 3: Conversation & Message Core
   epic-3: backlog
