@@ -12,6 +12,19 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "_bmad/**",
+    ".agents/**",
+    "infra/**",
+    "e2e/**",
+    "playwright-report/**",
+    "test-results/**",
+    "src/services/*.ts",
+    "src/lib/vector/*.ts",
+    "src/lib/ai/langchain.ts",
+    "src/lib/websearch/tool.ts",
+    "src/app/api/chat/route.ts",
+    "src/lib/db/fixtures/repository.fixture.ts",
+    "src/lib/db/repositories/conversation.repository.ts"
   ]),
 ]);
 

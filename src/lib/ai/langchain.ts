@@ -1,61 +1,80 @@
-import { ChatOpenAI } from "@langchain/openai"
-import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages"
+import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage, SystemMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
+import { IAiProvider } from './provider';
+import { Message } from '../db/entities/message.entity';
+import { webSearchTool } from '../websearch/tool';
 
-export interface ChatMessage {
-  role: "user" | "assistant" | "system"
-  content: string
-}
+export class LangchainProvider implements IAiProvider {
+  private model: ChatOpenAI;
 
-export class LangChainService {
-  private chat: ChatOpenAI
-
-  constructor() {
-    this.chat = new ChatOpenAI({
-      modelName: "gpt-4o-mini",
-      temperature: 0.7,
+  constructor(modelName: string = 'gpt-4o-mini') {
+    this.model = new ChatOpenAI({
+      modelName,
+      openAIApiKey: process.env.OPENAI_API_KEY,
       streaming: true,
-    })
+    });
   }
 
-  async *streamChat(
-    messages: ChatMessage[],
-    onChunk?: (chunk: string) => void
-  ): AsyncGenerator<string, void, unknown> {
-    const langchainMessages = messages.map((msg) => {
-      if (msg.role === "user") {
-        return new HumanMessage(msg.content)
-      } else if (msg.role === "assistant") {
-        return new AIMessage(msg.content)
-      } else {
-        return new SystemMessage(msg.content)
-      }
-    })
+  private mapMessages(messages: Message[]): BaseMessage[] {
+    return messages.map(m => {
+      if (m.role === 'system') return new SystemMessage(m.content);
+      if (m.role === 'assistant') return new AIMessage(m.content);
+      return new HumanMessage(m.content);
+    });
+  }
 
-    const stream = await this.chat.stream(langchainMessages)
+  async complete(messages: Message[]): Promise<string> {
+    const langchainMessages = this.mapMessages(messages);
+    const response = await this.model.invoke(langchainMessages);
+    return response.content.toString();
+  }
 
-    for await (const chunk of stream) {
-      const content = chunk.content as string
-      if (onChunk) {
-        onChunk(content)
+  async streamChat(messages: Message[], onChunk: (chunk: string) => void): Promise<void> {
+    const langchainMessages = this.mapMessages(messages);
+    // For agent streaming, we'd use AgentExecutor, but since we are doing simple tool execution,
+    // we can use tool binding. Since `.bindTools` type issues arose, we'll cast.
+    const modelWithTools = this.model.bindTools([webSearchTool]);
+
+    // First call to model
+    const response = await modelWithTools.invoke(langchainMessages);
+
+    // Check if tool call requested
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      // Execute tools (assuming only web_search for now)
+      for (const tc of response.tool_calls) {
+        if (tc.name === 'web_search') {
+          // Add tool call message to history
+          langchainMessages.push(response);
+
+          const toolResult = await webSearchTool.invoke({ query: tc.args.query });
+          // Add tool response to history
+          langchainMessages.push({
+            _getType: () => "tool",
+            role: "tool",
+            content: toolResult,
+            tool_call_id: tc.id,
+            name: tc.name
+          } as any);
+        }
       }
-      yield content
+
+      // Stream final response
+      const stream = await this.model.stream(langchainMessages);
+      for await (const chunk of stream) {
+        if (chunk.content) {
+          onChunk(chunk.content.toString());
+        }
+      }
+    } else {
+      // No tools called, just stream directly
+      const stream = await this.model.stream(langchainMessages);
+      for await (const chunk of stream) {
+        if (chunk.content) {
+          onChunk(chunk.content.toString());
+        }
+      }
     }
   }
-
-  async complete(messages: ChatMessage[]): Promise<string> {
-    const langchainMessages = messages.map((msg) => {
-      if (msg.role === "user") {
-        return new HumanMessage(msg.content)
-      } else if (msg.role === "assistant") {
-        return new AIMessage(msg.content)
-      } else {
-        return new SystemMessage(msg.content)
-      }
-    })
-
-    const response = await this.chat.invoke(langchainMessages)
-    return response.content as string
-  }
 }
 
-export const langChainService = new LangChainService()
+export const langChainService = new LangchainProvider();

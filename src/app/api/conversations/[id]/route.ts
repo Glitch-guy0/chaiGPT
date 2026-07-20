@@ -15,10 +15,6 @@ export async function GET(
     const db = await getDatabase()
     const conversation = await db.getRepository(Conversation).findOne({
       where: { id },
-      relations: {
-        messages: true,
-      },
-      order: { messages: { createdAt: "ASC" } },
     })
 
     if (!conversation) {
