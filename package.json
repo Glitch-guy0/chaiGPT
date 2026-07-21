@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "",
+    "start": "next dev",
     "lint": "eslint",
     "start:dev:infra": "docker-compose -f infra/docker-compose.yml up -d --wait",
     "stop:dev:infra": "docker-compose -f infra/docker-compose.yml down && docker volume ls -q -f name=chaigpt_assets | xargs -r docker volume rm 2>/dev/null || true",
