@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import type { Role } from '@/types';
-import { Conversation } from './conversation.entity';
+import type { Conversation } from './conversation.entity';
 
 export type MessageStatus = 'processing' | 'complete' | 'stopped';
 
@@ -39,14 +39,14 @@ export class Message {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Conversation, conversation => conversation.messages)
+  @ManyToOne('Conversation', (conversation: Conversation) => conversation.messages)
   @JoinColumn({ name: 'conversationId' })
   conversation?: Conversation;
 
-  @ManyToOne(() => Message, message => message.siblings, { nullable: true })
+  @ManyToOne('Message', (message: Message) => message.siblings, { nullable: true })
   @JoinColumn({ name: 'parentId' })
   parent?: Message;
 
-  @OneToMany(() => Message, message => message.parent)
+  @OneToMany('Message', (message: Message) => message.parent)
   siblings?: Message[];
 }

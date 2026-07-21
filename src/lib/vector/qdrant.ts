@@ -48,18 +48,22 @@ export class QdrantVectorStore implements QdrantStore {
 
   async search(vec: number[], convId: string, k: number): Promise<Hit[]> {
     const name = collectionName(convId);
-    const results = await this.client.search(name, {
-      vector: vec,
-      limit: k,
-      with_payload: true,
-    });
+    try {
+      const results = await this.client.search(name, {
+        vector: vec,
+        limit: k,
+        with_payload: true,
+      });
 
-    return results.map((point) => ({
-      chunkId: (point.payload?.chunkId as string) ?? "",
-      assetId: (point.payload?.assetId as string) ?? "",
-      score: point.score,
-      text: (point.payload?.text as string) ?? "",
-    }));
+      return results.map((point) => ({
+        chunkId: (point.payload?.chunkId as string) ?? "",
+        assetId: (point.payload?.assetId as string) ?? "",
+        score: point.score,
+        text: (point.payload?.text as string) ?? "",
+      }));
+    } catch {
+      return [];
+    }
   }
 
   async upsertChunks(

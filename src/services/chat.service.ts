@@ -90,10 +90,12 @@ export class ChatServiceImpl implements ChatService {
 
     const messages: ChatMessage[] = [
       { role: 'system', content: 'You are a helpful assistant.' },
-      ...history.map(m => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      })),
+      ...history
+        .filter(m => m.content && m.content.trim().length > 0)
+        .map(m => ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        })),
     ];
 
     let citations: Citation[] = [];

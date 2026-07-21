@@ -21,6 +21,7 @@ export async function GET() {
       order: { updatedAt: "DESC" },
       take: 50,
     })
+    console.log(`[Conversations API] Fetched ${conversations.length} conversations for userId=${userId}`)
     return NextResponse.json(conversations)
   } catch (error) {
     console.error("Get conversations error:", error)

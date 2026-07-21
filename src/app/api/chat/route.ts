@@ -10,6 +10,7 @@ import { ChatRequestSchema } from "@/lib/validation/schemas"
 import { getDatabase } from "@/lib/db"
 import { getRedisClient, RedisClient } from "@/lib/cache/redis"
 import { getQdrantStore } from "@/lib/vector/qdrant"
+import { DefaultWebSearchTool } from "@/lib/websearch/webSearchTool"
 import { ZodError } from "zod"
 
 export const runtime = "nodejs"
@@ -24,9 +25,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    console.log("[Chat API] Received POST /api/chat request body:", JSON.stringify(body, null, 2))
+
     const parsed = ChatRequestSchema.safeParse(body)
 
     if (!parsed.success) {
+      console.error("[Chat API] 400 Bad Request — Zod validation failed:", JSON.stringify(parsed.error.issues, null, 2))
       return NextResponse.json(
         { error: "Invalid request", details: parsed.error.issues },
         { status: 400 },
@@ -54,6 +58,7 @@ export async function POST(request: Request) {
       assetRepo,
       getQdrantStore(),
       redisCache,
+      new DefaultWebSearchTool(),
     )
 
     const stream = await chatService.send(parsed.data, userId)

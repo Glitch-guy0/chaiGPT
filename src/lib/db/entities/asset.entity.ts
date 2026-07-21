@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Conversation } from './conversation.entity';
+import type { Conversation } from './conversation.entity';
 
 @Entity('assets')
 export class Asset {
@@ -30,7 +30,7 @@ export class Asset {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Conversation, conversation => conversation.assets)
+  @ManyToOne('Conversation', (conversation: Conversation) => conversation.assets)
   @JoinColumn({ name: 'conversationId' })
   conversation?: Conversation;
 }

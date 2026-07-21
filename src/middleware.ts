@@ -1,11 +1,21 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/",
+]);
+
 const isApiRoute = createRouteMatcher([
   "/api(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (isPublicRoute(req)) {
+    return;
+  }
+
   let userId: string | null = null;
   try {
     const session = await auth();
@@ -29,6 +39,7 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(signInUrl);
   }
 });
+
 
 export const config = {
   matcher: [

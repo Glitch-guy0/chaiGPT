@@ -5,7 +5,7 @@ export const RoleSchema: z.ZodType<Role> = z.enum(['user', 'assistant', 'system'
 
 export const ChatMessageSchema: z.ZodType<ChatMessage> = z.object({
   role: RoleSchema,
-  content: z.string().min(1).max(10000),
+  content: z.string().max(10000),
 });
 
 export const ChatRequestSchema: z.ZodType<ChatRequest> = z.object({

@@ -6,8 +6,8 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { Message } from './message.entity';
-import { Asset } from './asset.entity';
+import type { Message } from './message.entity';
+import type { Asset } from './asset.entity';
 
 @Entity('conversations')
 export class Conversation {
@@ -35,9 +35,9 @@ export class Conversation {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @OneToMany(() => Message, message => message.conversation)
+  @OneToMany('Message', (message: Message) => message.conversation)
   messages?: Message[];
 
-  @OneToMany(() => Asset, asset => asset.conversation)
+  @OneToMany('Asset', (asset: Asset) => asset.conversation)
   assets?: Asset[];
 }
