@@ -104,10 +104,10 @@ development_status:
   epic-6-retrospective: optional
 
   # Epic 7: Web Search (Jina API + LangChain Tool)
-  epic-7: in-progress
-  7-1-jina-web-search-client-jinaprovider: ready-for-dev
-  7-2-websearchtool-langchain: ready-for-dev
-  7-3-web-context-injection: ready-for-dev
+  epic-7: done
+  7-1-jina-web-search-client-jinaprovider: done
+  7-2-websearchtool-langchain: done
+  7-3-web-context-injection: done
   epic-7-retrospective: optional
 
 action_items:

@@ -12,6 +12,7 @@ import { ChatRequestSchema } from '@/lib/validation/schemas';
 import { splitContent } from '@/lib/transforms/content-split';
 import type { Conversation } from '@/lib/db/entities/conversation.entity';
 import { formatRagContext, hitsToCitations } from '@/lib/rag/inject';
+import type { WebSearchTool } from '@/lib/websearch/webSearchTool';
 
 export type { ChatRequest, ChatMessage };
 
@@ -29,6 +30,7 @@ export class ChatServiceImpl implements ChatService {
     private assetRepo?: AssetRepository,
     private qdrantStore?: QdrantStore,
     private redisCache?: RedisCache,
+    private webSearchTool?: WebSearchTool,
   ) {}
 
   async send(req: ChatRequest, userId: string): Promise<ReadableStream> {
@@ -160,6 +162,24 @@ export class ChatServiceImpl implements ChatService {
             content: ragContext,
           });
         }
+      }
+    }
+
+    if (this.webSearchTool) {
+      try {
+        const webResult = await this.webSearchTool.run({ query: userContent });
+        if (
+          webResult &&
+          !webResult.startsWith('No web search results') &&
+          !webResult.startsWith('Web search unavailable')
+        ) {
+          messages.splice(1, 0, {
+            role: 'system',
+            content: webResult,
+          });
+        }
+      } catch (err) {
+        console.error('[WebSearch] Injection failed:', err);
       }
     }
 
