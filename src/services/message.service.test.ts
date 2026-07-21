@@ -20,6 +20,7 @@ function createMockMessageRepo() {
     save: vi.fn(),
     updateStatus: vi.fn(),
     tryStartRegenerate: vi.fn(),
+    removeAssetId: vi.fn(),
   } satisfies MessageRepository;
 }
 
@@ -30,6 +31,13 @@ function createMockConversationRepo() {
     save: vi.fn(),
     branch: vi.fn(),
   } satisfies ConversationRepository;
+}
+
+function createMockAssetService() {
+  return {
+    ingest: vi.fn().mockResolvedValue({}),
+    remove: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 function makeMessage(overrides: Partial<Message> = {}): Message {
@@ -172,6 +180,54 @@ describe("MessageServiceImpl", () => {
       expect(conversationRepo.findById).toHaveBeenCalledWith(CONV_ID, USER_ID);
       expect(messageRepo.findLatestUserMessage).toHaveBeenCalledWith(CONV_ID, USER_ID);
       expect(messageRepo.findTrailingAssistantMessage).toHaveBeenCalledWith(CONV_ID, "user-msg-1", USER_ID);
+    });
+  });
+
+  describe("removeAssetFromMessage", () => {
+    const USER_ID = "user-1";
+    const MSG_ID = "msg-1";
+    const ASSET_ID = "asset-1";
+
+    it("delegates to repo.removeAssetId and assetService.remove", async () => {
+      const assetSvc = createMockAssetService();
+      const svcWithAsset = new MessageServiceImpl(
+        messageRepo,
+        conversationRepo,
+        assetSvc as never,
+      );
+
+      messageRepo.findById.mockResolvedValue(makeMessage({ id: MSG_ID, assetIds: [ASSET_ID] }));
+
+      await svcWithAsset.removeAssetFromMessage(MSG_ID, ASSET_ID, USER_ID);
+
+      expect(messageRepo.findById).toHaveBeenCalledWith(MSG_ID, USER_ID);
+      expect(messageRepo.removeAssetId).toHaveBeenCalledWith(MSG_ID, ASSET_ID, USER_ID);
+      expect(assetSvc.remove).toHaveBeenCalledWith(ASSET_ID, USER_ID);
+    });
+
+    it("throws NotFoundError when message not found", async () => {
+      messageRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.removeAssetFromMessage(MSG_ID, ASSET_ID, USER_ID),
+      ).rejects.toThrow(NotFoundError);
+      expect(messageRepo.removeAssetId).not.toHaveBeenCalled();
+    });
+
+    it("works without assetService (optional)", async () => {
+      messageRepo.findById.mockResolvedValue(makeMessage({ id: MSG_ID, assetIds: [ASSET_ID] }));
+
+      await service.removeAssetFromMessage(MSG_ID, ASSET_ID, USER_ID);
+
+      expect(messageRepo.removeAssetId).toHaveBeenCalledWith(MSG_ID, ASSET_ID, USER_ID);
+    });
+
+    it("enforces userId scoping", async () => {
+      messageRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.removeAssetFromMessage(MSG_ID, ASSET_ID, "wrong-user"),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 

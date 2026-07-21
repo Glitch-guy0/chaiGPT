@@ -8,6 +8,8 @@ import { OpenAiProvider } from "@/lib/ai/langchain"
 import { NotFoundError } from "@/lib/errors"
 import { ChatRequestSchema } from "@/lib/validation/schemas"
 import { getDatabase } from "@/lib/db"
+import { getRedisClient, RedisClient } from "@/lib/cache/redis"
+import { getQdrantStore } from "@/lib/vector/qdrant"
 import { ZodError } from "zod"
 
 export const runtime = "nodejs"
@@ -37,13 +39,21 @@ export async function POST(request: Request) {
     const assetRepo = new AssetRepositoryImpl(ds)
     const aiProvider = new OpenAiProvider()
 
+    let redisCache: RedisClient | undefined;
+    try {
+      const redis = getRedisClient();
+      redisCache = new RedisClient(redis);
+    } catch {
+      console.warn("[Chat] Redis unavailable — falling back to uncached RAG");
+    }
+
     const chatService = new ChatServiceImpl(
       conversationRepo,
       messageRepo,
       aiProvider,
       assetRepo,
-      undefined, // qdrantStore — wire when Story 5.3 lands
-      undefined, // redisCache — wire when Story 5.4 lands
+      getQdrantStore(),
+      redisCache,
     )
 
     const stream = await chatService.send(parsed.data, userId)

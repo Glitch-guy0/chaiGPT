@@ -189,3 +189,11 @@ Redis needs to be added to `infra/docker-compose.yml` alongside existing `db` (P
 
 ### File List
 (To be filled by dev agent)
+
+### Review Findings
+
+- [x] [Review][Patch] Cache invalidation missing on asset delete — DELETE /api/assets/[id] doesn't call invalidateRagCache. [src/app/api/assets/[id]/route.ts:26-27] — fixed
+- [x] [Review][Patch] Cache invalidation missing on removeAssetFromMessage — stale RAG context persists. [src/services/message.service.ts:111-119] — fixed (cache invalidated at DELETE route level after asset removal)
+- [x] [Review][Patch] deserializeHits has no schema validation — stale schema after deploy propagates corrupted data. [src/lib/cache/redis.ts:20-27] — fixed
+- [x] [Review][Patch] Redis singleton never cleaned up on process exit — delayed deploys. [src/lib/cache/redis.ts:29-52] — fixed (SIGINT/SIGTERM handlers added)
+- [x] [Review][Defer] getRedisClient throws in test environments without REDIS_URL — test env concern. [src/lib/cache/redis.ts:35-38]

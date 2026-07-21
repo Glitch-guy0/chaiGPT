@@ -11,9 +11,18 @@ export interface ChatRequest {
   conversationId?: string;
 }
 
+export interface Citation {
+  chunkId: string;
+  assetId: string;
+  score: number;
+  snippet: string;
+}
+
 export interface ChatResponse {
   id: string;
   content: string;
   conversationId: string;
   model?: string;
+  citations?: Citation[];
+  ragDegraded?: boolean;
 }

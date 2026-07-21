@@ -121,4 +121,36 @@ describe("AssetRepositoryImpl", () => {
     const assets = await repo.findByConversation(conv1.id, "user-1");
     await expect(repo.delete(assets[0].id, "user-2")).rejects.toThrow("Asset not found");
   });
+
+  describe("findIds", () => {
+    it("should return matching assets scoped by userId", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const saved = await repo.findByConversation(conv1.id, "user-1");
+
+      const found = await repo.findIds([saved[0].id], "user-1");
+      expect(found.length).toBe(1);
+      expect(found[0].id).toBe(saved[0].id);
+    });
+
+    it("should return empty for empty ids array", async () => {
+      const found = await repo.findIds([], "user-1");
+      expect(found).toEqual([]);
+    });
+
+    it("should enforce userId scoping", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const saved = await repo.findByConversation(conv1.id, "user-1");
+
+      const found = await repo.findIds([saved[0].id], "wrong-user");
+      expect(found.length).toBe(0);
+    });
+
+    it("should return only found assets when some IDs don't exist", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const saved = await repo.findByConversation(conv1.id, "user-1");
+
+      const found = await repo.findIds([saved[0].id, "00000000-0000-0000-0000-000000000000"], "user-1");
+      expect(found.length).toBe(1);
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { Message } from '../lib/db/entities/message.entity';
 import { Conversation } from '../lib/db/entities/conversation.entity';
 import { MessageRepository } from '../lib/db/repositories/message.repository';
 import { ConversationRepository } from '../lib/db/repositories/conversation.repository';
+import type { AssetService } from './asset.service';
 import { NotFoundError } from '../lib/errors';
 
 export type EditLatestResult = { userMessage: Message; assistantMessage: Message };
@@ -14,12 +15,14 @@ export interface MessageService {
   ): Promise<Message>;
   history(conversationId: string): Promise<Message[]>;
   editLatest(userId: string, conversationId: string, content: string): Promise<EditLatestResult>;
+  removeAssetFromMessage(messageId: string, assetId: string, userId: string): Promise<void>;
 }
 
 export class MessageServiceImpl implements MessageService {
   constructor(
     private messageRepo: MessageRepository,
     private conversationRepo: ConversationRepository,
+    private assetService?: AssetService,
   ) {}
 
   async editLatest(userId: string, conversationId: string, content: string): Promise<EditLatestResult> {
@@ -103,5 +106,24 @@ export class MessageServiceImpl implements MessageService {
 
   async history(_conversationId: string): Promise<Message[]> {
     throw new Error('Not implemented')
+  }
+
+  async removeAssetFromMessage(messageId: string, assetId: string, userId: string): Promise<void> {
+    const msg = await this.messageRepo.findById(messageId, userId)
+    if (!msg) throw new NotFoundError('Message not found')
+
+    if (!msg.assetIds?.includes(assetId)) {
+      throw new NotFoundError('Asset not found on this message')
+    }
+
+    await this.messageRepo.removeAssetId(messageId, assetId, userId)
+
+    if (this.assetService) {
+      try {
+        await this.assetService.remove(assetId, userId)
+      } catch (err) {
+        console.warn(`[MessageService] Asset removal failed for ${assetId} after message update:`, err)
+      }
+    }
   }
 }

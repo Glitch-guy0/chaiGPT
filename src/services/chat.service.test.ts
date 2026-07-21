@@ -7,6 +7,7 @@ import type { Conversation } from "@/lib/db/entities/conversation.entity";
 import type { Message } from "@/lib/db/entities/message.entity";
 import { MockAiProvider } from "../../tests/fixtures/mock-ai-provider";
 import { MockQdrantStore } from "../../tests/fixtures/mock-qdrant-store";
+import { MockRedisCache } from "../../tests/fixtures/mock-redis-cache";
 import { NotFoundError } from "@/lib/errors";
 
 const CONV_ID = "00000000-0000-0000-0000-000000000000";
@@ -36,6 +37,7 @@ function createMockMessageRepo() {
     save: vi.fn(),
     updateStatus: vi.fn(),
     tryStartRegenerate: vi.fn(),
+    removeAssetId: vi.fn(),
   } satisfies MessageRepository;
 }
 
@@ -45,6 +47,7 @@ function createMockAssetRepo() {
     findAll: vi.fn(),
     save: vi.fn(),
     findByConversation: vi.fn(),
+    findIds: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),
   } satisfies AssetRepository;
 }
@@ -406,10 +409,11 @@ describe("ChatServiceImpl", () => {
       await collectStreamEvents(stream);
 
       const ragMsg = sentMessages.find(
-        (m) => m.role === "system" && m.content.includes("Relevant context"),
+        (m) => m.role === "system" && m.content.includes("[RAG Context]"),
       );
       expect(ragMsg).toBeDefined();
       expect(ragMsg!.content).toContain("Relevant doc text");
+      expect(ragMsg!.content).toContain("[1] (asset: a1, chunk: c1, score: 0.9)");
     });
 
     it("gracefully degrades when RAG fails", async () => {
@@ -441,7 +445,7 @@ describe("ChatServiceImpl", () => {
       await collectStreamEvents(stream);
 
       const ragMsg = sentMessages.find(
-        (m) => m.role === "system" && m.content.includes("Relevant context"),
+        (m) => m.role === "system" && m.content.includes("[RAG Context]"),
       );
       expect(ragMsg).toBeUndefined();
     });
@@ -498,7 +502,7 @@ describe("ChatServiceImpl", () => {
 
     it("does not create asset when content ≤ 500 chars", async () => {
       conversationRepo.save.mockResolvedValue(makeConversation());
-      conversationRepo.findById.mockResolvedValue(null);
+      conversationRepo.findById.mockResolvedValue(makeConversation());
 
       const assetRepo = createMockAssetRepo();
 
@@ -521,7 +525,7 @@ describe("ChatServiceImpl", () => {
 
     it("does not create asset when assetRepo not configured", async () => {
       conversationRepo.save.mockResolvedValue(makeConversation());
-      conversationRepo.findById.mockResolvedValue(null);
+      conversationRepo.findById.mockResolvedValue(makeConversation());
 
       const longContent = "z".repeat(600);
       const stream = await service.send(
@@ -537,6 +541,432 @@ describe("ChatServiceImpl", () => {
         content: "z".repeat(500),
         status: "complete",
       });
+    });
+
+    it("skips RAG when conversationId is not provided", async () => {
+      conversationRepo.save.mockResolvedValue(makeConversation());
+
+      const qdrant = new MockQdrantStore();
+      const embedSpy = vi.spyOn(qdrant, "embed");
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: undefined }),
+        "user-1",
+      );
+      await collectStreamEvents(stream);
+
+      expect(embedSpy).not.toHaveBeenCalled();
+    });
+
+    it("skips RAG when qdrantStore is not provided", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+      );
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID }),
+        "user-1",
+      );
+      await collectStreamEvents(stream);
+
+      const ragMsg = Array.from(messageRepo.save.mock.calls).find(
+        (c: Partial<Message>[]) => c[0]?.role === "system",
+      );
+      expect(ragMsg).toBeUndefined();
+    });
+
+    it("returns empty citations when search returns no hits", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => [0.1, 0.2, 0.3]);
+      qdrant.onSearch(async () => []);
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      let donePayload: Record<string, unknown> = {};
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("ok");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      expect(doneEvent).toBeDefined();
+      donePayload = JSON.parse(doneEvent!.split("data: ")[1]);
+      expect(donePayload.citations).toEqual([]);
+    });
+
+    it("includes citations in done event when RAG returns hits", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => [0.1, 0.2, 0.3]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.95, text: "Policy text here" },
+      ]);
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("response");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      const donePayload = JSON.parse(doneEvent!.split("data: ")[1]);
+      expect(donePayload.citations).toEqual([
+        {
+          chunkId: "c1",
+          assetId: "a1",
+          score: 0.95,
+          snippet: "Policy text here",
+        },
+      ]);
+    });
+
+    it("sets ragDegraded true when search throws", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => { throw new Error("Qdrant down"); });
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("fallback");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      const donePayload = JSON.parse(doneEvent!.split("data: ")[1]);
+      expect(donePayload.ragDegraded).toBe(true);
+    });
+
+    it("sets ragDegraded true when embed throws", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => { throw new Error("Embed timeout"); });
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("fallback");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      const donePayload = JSON.parse(doneEvent!.split("data: ")[1]);
+      expect(donePayload.ragDegraded).toBe(true);
+    });
+
+    it("does not include RAG context text in stream chunks", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.9, text: "Secret RAG content" },
+      ]);
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => {
+        onChunk("Hello");
+        onChunk(" world");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const dataEvents = events.filter((e) => e.startsWith("data:"));
+      const allTokens = dataEvents.join("");
+      expect(allTokens).not.toContain("Secret RAG content");
+      expect(allTokens).not.toContain("[RAG Context]");
+    });
+
+    it("logs warning when retrieval exceeds 200ms", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => {
+        await new Promise((r) => setTimeout(r, 210));
+        return [0.1];
+      });
+      qdrant.onSearch(async () => []);
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => { onChunk("ok"); });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      await collectStreamEvents(stream);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[RAG] Retrieval approaching budget"),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("cache hit skips embed+search", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      const embedSpy = vi.spyOn(qdrant, "embed");
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.9, text: "Cached doc text" },
+      ]);
+
+      const cache = new MockRedisCache();
+      await cache.set(
+        `ctx:${CONV_ID_ALT}`,
+        JSON.stringify([{ chunkId: "c1", assetId: "a1", score: 0.9, text: "Cached doc text" }]),
+        600,
+      );
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+        cache,
+      );
+
+      let sentMessages: ChatMessage[] = [];
+      aiProvider.onStream(async (msgs, onChunk) => {
+        sentMessages = msgs;
+        onChunk("ok");
+      });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      await collectStreamEvents(stream);
+
+      expect(embedSpy).not.toHaveBeenCalled();
+      const ragMsg = sentMessages.find(
+        (m) => m.role === "system" && m.content.includes("[RAG Context]"),
+      );
+      expect(ragMsg).toBeDefined();
+      expect(ragMsg!.content).toContain("Cached doc text");
+    });
+
+    it("cache miss triggers embed+search and writes to cache", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      const embedSpy = vi.spyOn(qdrant, "embed");
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.9, text: "Fresh doc text" },
+      ]);
+
+      const cache = new MockRedisCache();
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+        cache,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => { onChunk("ok"); });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      await collectStreamEvents(stream);
+
+      expect(embedSpy).toHaveBeenCalled();
+      const cached = await cache.get(`ctx:${CONV_ID_ALT}`);
+      expect(cached).not.toBeNull();
+      const hits = JSON.parse(cached!);
+      expect(hits[0].text).toBe("Fresh doc text");
+    });
+
+    it("cache write failure does not break chat", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.9, text: "Doc" },
+      ]);
+
+      const cache = new MockRedisCache();
+      vi.spyOn(cache, "set").mockRejectedValue(new Error("Redis down"));
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+        cache,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => { onChunk("ok"); });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      expect(doneEvent).toBeDefined();
+      expect(doneEvent).toContain('"status":"complete"');
+    });
+
+    it("cache read failure falls through to embed+search", async () => {
+      const ragConv = makeConversation({ id: CONV_ID_ALT });
+      conversationRepo.findById.mockResolvedValue(ragConv);
+
+      const qdrant = new MockQdrantStore();
+      const embedSpy = vi.spyOn(qdrant, "embed");
+      qdrant.onEmbed(async () => [0.1]);
+      qdrant.onSearch(async () => [
+        { chunkId: "c1", assetId: "a1", score: 0.9, text: "Fallback doc" },
+      ]);
+
+      const cache = new MockRedisCache();
+      vi.spyOn(cache, "get").mockRejectedValue(new Error("Redis down"));
+
+      await import("./chat.service");
+      service = new ChatServiceImpl(
+        conversationRepo,
+        messageRepo,
+        aiProvider,
+        undefined,
+        qdrant,
+        cache,
+      );
+
+      aiProvider.onStream(async (_msgs, onChunk) => { onChunk("ok"); });
+
+      const stream = await service.send(
+        makeChatRequest({ conversationId: CONV_ID_ALT }),
+        "user-1",
+      );
+      const events = await collectStreamEvents(stream);
+
+      expect(embedSpy).toHaveBeenCalled();
+      const doneEvent = events.find((e) => e.includes("event: done"));
+      expect(doneEvent).toBeDefined();
+    });
+
+    it("cache invalidation deletes key", async () => {
+      const cache = new MockRedisCache();
+      await cache.set("ctx:conv-del", JSON.stringify([{ chunkId: "c1", assetId: "a1", score: 0.9, text: "old" }]), 600);
+
+      expect(await cache.get("ctx:conv-del")).not.toBeNull();
+
+      await cache.del("ctx:conv-del");
+      expect(await cache.get("ctx:conv-del")).toBeNull();
     });
   });
 

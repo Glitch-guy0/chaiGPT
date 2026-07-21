@@ -10,8 +10,10 @@ export class MockQdrantStore implements QdrantStore {
   ) => Promise<Hit[]> = async () => [];
   private upsertFn: (
     assetId: string,
+    convId: string,
     chunks: Chunk[],
   ) => Promise<void> = async () => {};
+  private deleteFn: (assetId: string) => Promise<void> = async () => {};
 
   onEmbed(fn: (text: string) => Promise<number[]>) {
     this.embedFn = fn;
@@ -21,8 +23,11 @@ export class MockQdrantStore implements QdrantStore {
   ) {
     this.searchFn = fn;
   }
-  onUpsert(fn: (assetId: string, chunks: Chunk[]) => Promise<void>) {
+  onUpsert(fn: (assetId: string, convId: string, chunks: Chunk[]) => Promise<void>) {
     this.upsertFn = fn;
+  }
+  onDelete(fn: (assetId: string) => Promise<void>) {
+    this.deleteFn = fn;
   }
 
   async embed(text: string): Promise<number[]> {
@@ -37,8 +42,12 @@ export class MockQdrantStore implements QdrantStore {
   }
   async upsertChunks(
     assetId: string,
+    convId: string,
     chunks: Chunk[],
   ): Promise<void> {
-    return this.upsertFn(assetId, chunks);
+    return this.upsertFn(assetId, convId, chunks);
+  }
+  async deleteByAssetId(assetId: string): Promise<void> {
+    return this.deleteFn(assetId);
   }
 }

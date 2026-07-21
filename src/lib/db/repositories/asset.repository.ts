@@ -6,6 +6,7 @@ export interface AssetRepository {
   findAll(userId: string): Promise<Asset[]>;
   save(a: Partial<Asset>): Promise<Asset>;
   findByConversation(conversationId: string, userId: string): Promise<Asset[]>;
+  findIds(ids: string[], userId: string): Promise<Asset[]>;
   delete(id: string, userId: string): Promise<void>;
 }
 
@@ -30,6 +31,14 @@ export class AssetRepositoryImpl implements AssetRepository {
 
   async findByConversation(conversationId: string, userId: string): Promise<Asset[]> {
     return this.repo.find({ where: { conversationId, userId } })
+  }
+
+  async findIds(ids: string[], userId: string): Promise<Asset[]> {
+    if (ids.length === 0) return []
+    return this.repo.createQueryBuilder('asset')
+      .where('asset.id IN (:...ids)', { ids })
+      .andWhere('asset.userId = :userId', { userId })
+      .getMany()
   }
 
   async delete(id: string, userId: string): Promise<void> {

@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatMessage } from '@/types';
+import type { ChatRequest, ChatMessage, Citation } from '@/types';
 import type { AiProvider } from '@/lib/ai/langchain';
 import { DEFAULT_MODEL } from '@/lib/ai/langchain';
 import type { AssetRepository } from '@/lib/db/repositories/asset.repository';
@@ -6,10 +6,12 @@ import type { ConversationRepository } from '@/lib/db/repositories/conversation.
 import type { MessageRepository, MessageStatus } from '@/lib/db/repositories/message.repository';
 import type { QdrantStore } from '@/lib/vector/qdrant';
 import type { RedisCache } from '@/lib/cache/redis';
+import { cacheKey, deserializeHits, serializeHits, CACHE_TTL_SECONDS } from '@/lib/cache/redis';
 import { NotFoundError } from '@/lib/errors';
 import { ChatRequestSchema } from '@/lib/validation/schemas';
 import { splitContent } from '@/lib/transforms/content-split';
 import type { Conversation } from '@/lib/db/entities/conversation.entity';
+import { formatRagContext, hitsToCitations } from '@/lib/rag/inject';
 
 export type { ChatRequest, ChatMessage };
 
@@ -92,29 +94,84 @@ export class ChatServiceImpl implements ChatService {
       })),
     ];
 
+    let citations: Citation[] = [];
+    let ragDegraded = false;
+
     if (parsed.conversationId && this.qdrantStore) {
-      try {
-        const vec = await this.qdrantStore.embed(userContent);
-        const hits = await this.qdrantStore.search(vec, parsed.conversationId, 3);
-        if (hits.length > 0) {
-          const context = hits.map(h => h.text).join('\n');
+      let hits: import('@/lib/vector/qdrant').Hit[] | null = null;
+      const key = cacheKey(parsed.conversationId);
+
+      // Try cache first
+      if (this.redisCache) {
+        try {
+          const cached = await this.redisCache.get(key);
+          if (cached) {
+            hits = deserializeHits(cached);
+            if (hits) {
+              console.log(`[Cache] hit for convId=${parsed.conversationId}`);
+            }
+          }
+        } catch (err) {
+          console.warn('[Cache] get() failed, falling through to embed+search:', err);
+        }
+      }
+
+      // Cache miss — embed + search
+      if (!hits) {
+        try {
+          const ragStart = performance.now();
+          const vec = await this.qdrantStore.embed(userContent);
+          hits = await this.qdrantStore.search(vec, parsed.conversationId, 3);
+          const ragLatencyMs = performance.now() - ragStart;
+
+          if (ragLatencyMs > 300) {
+            console.error(
+              `[RAG] Retrieval exceeded 300ms budget: ${ragLatencyMs.toFixed(1)}ms ` +
+              `conversationId=${conversation.id} assetCount=${hits.length}`,
+            );
+          } else if (ragLatencyMs > 200) {
+            console.warn(
+              `[RAG] Retrieval approaching budget: ${ragLatencyMs.toFixed(1)}ms ` +
+              `conversationId=${conversation.id}`,
+            );
+          }
+
+          console.log(`[Cache] miss — embedded + searched for convId=${parsed.conversationId}`);
+
+          // Write to cache (fire-and-forget)
+          if (this.redisCache) {
+            this.redisCache.set(key, serializeHits(hits), CACHE_TTL_SECONDS).catch((err) => {
+              console.warn('[Cache] set() failed:', err);
+            });
+          }
+        } catch (err) {
+          ragDegraded = true;
+          console.error('[RAG] Retrieval failed, proceeding ungrounded:', err);
+          hits = [];
+        }
+      }
+
+      if (hits.length > 0) {
+        citations = hitsToCitations(hits);
+        const ragContext = formatRagContext(hits);
+        if (ragContext) {
           messages.splice(1, 0, {
             role: 'system',
-            content: `Relevant context:\n${context}`,
+            content: ragContext,
           });
         }
-      } catch {
-        // graceful degradation — stream still proceeds without RAG
       }
     }
 
-    return this.createStream(assistantMessage.id, messages, userId);
+    return this.createStream(assistantMessage.id, messages, userId, citations, ragDegraded);
   }
 
   private async createStream(
     assistantMessageId: string,
     messages: ChatMessage[],
     userId: string,
+    citations: Citation[] = [],
+    ragDegraded = false,
   ): Promise<ReadableStream> {
     const encoder = new TextEncoder();
     let buffer = '';
@@ -144,7 +201,7 @@ export class ChatServiceImpl implements ChatService {
 
           controller.enqueue(
             encoder.encode(
-              `event: done\ndata: ${JSON.stringify({ id: assistantMessageId, status: 'complete' })}\n\n`,
+              `event: done\ndata: ${JSON.stringify({ id: assistantMessageId, status: 'complete', citations, ragDegraded })}\n\n`,
             ),
           );
           controller.close();
@@ -218,6 +275,45 @@ export class ChatServiceImpl implements ChatService {
       })),
     ];
 
-    return this.createStream(messageId, messages, userId);
+    let citations: Citation[] = [];
+    let ragDegraded = false;
+
+    if (this.qdrantStore && history.length > 0) {
+      const lastUserMsg = [...history].reverse().find(m => m.role === 'user');
+      if (lastUserMsg) {
+        let hits: import('@/lib/vector/qdrant').Hit[] | null = null;
+        const key = cacheKey(message.conversationId);
+
+        if (this.redisCache) {
+          try {
+            const cached = await this.redisCache.get(key);
+            if (cached) hits = deserializeHits(cached);
+          } catch { /* fall through */ }
+        }
+
+        if (!hits) {
+          try {
+            const vec = await this.qdrantStore.embed(lastUserMsg.content);
+            hits = await this.qdrantStore.search(vec, message.conversationId, 3);
+            if (this.redisCache) {
+              this.redisCache.set(key, serializeHits(hits), CACHE_TTL_SECONDS).catch(() => {});
+            }
+          } catch {
+            ragDegraded = true;
+            hits = [];
+          }
+        }
+
+        if (hits && hits.length > 0) {
+          citations = hitsToCitations(hits);
+          const ragContext = formatRagContext(hits);
+          if (ragContext) {
+            messages.splice(1, 0, { role: 'system', content: ragContext });
+          }
+        }
+      }
+    }
+
+    return this.createStream(messageId, messages, userId, citations, ragDegraded);
   }
 }

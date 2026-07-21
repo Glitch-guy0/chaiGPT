@@ -17,6 +17,7 @@ export interface MessageRepository {
   save(m: Partial<Message>): Promise<Message>;
   updateStatus(id: string, status: MessageStatus, userId: string): Promise<void>;
   tryStartRegenerate(id: string, userId: string): Promise<boolean>;
+  removeAssetId(messageId: string, assetId: string, userId: string): Promise<void>;
 }
 
 export class MessageRepositoryImpl implements MessageRepository {
@@ -97,5 +98,13 @@ export class MessageRepositoryImpl implements MessageRepository {
       { status: 'processing' }
     )
     return (result.affected ?? 0) > 0
+  }
+
+  async removeAssetId(messageId: string, assetId: string, userId: string): Promise<void> {
+    const msg = await this.repo.findOne({ where: { id: messageId, userId } })
+    if (!msg) throw new Error('Message not found')
+
+    msg.assetIds = (msg.assetIds ?? []).filter((id) => id !== assetId)
+    await this.repo.save(msg)
   }
 }

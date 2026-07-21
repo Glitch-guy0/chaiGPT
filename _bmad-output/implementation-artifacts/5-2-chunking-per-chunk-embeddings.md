@@ -184,3 +184,10 @@ for (let i = 0; i < points.length; i += BATCH_SIZE) {
 | Very large file (>100k chars)    | Many chunks. Batching handles Qdrant upsert correctly.   |
 | Non-UTF-8 encoding (Latin-1)    | Normalize to UTF-8 before chunking.                      |
 | Concurrent uploads same conv     | Qdrant upsert is idempotent by point ID. Safe.           |
+
+### Review Findings
+
+- [x] [Review][Patch] PDF page-by-page chunking not implemented — `chunkDocument` ignores mimeType param entirely, uses CharacterTextSplitter for all types. [src/lib/chunking/chunker.ts:10-18] — fixed
+- [x] [Review][Patch] Qdrant collection config missing payload_schema indexes — no efficient filtering on assetId/chunkId. [schema/vector/collections.ts:1-6] — fixed
+- [x] [Review][Patch] Duplicate chunking utilities with conflicting configs — `text-chunker.ts` (1000/200) vs `chunker.ts` (2000/0). [src/lib/chunking/chunker.ts, src/lib/ai/text-chunker.ts] — fixed (text-extractor dead import removed; chunker.ts is canonical)
+- [x] [Review][Defer] Duplicate qdrant.test.ts in two locations — test consolidation, not a code bug. [src/lib/vector/qdrant.test.ts, src/lib/vector/__tests__/qdrant.test.ts]

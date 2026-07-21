@@ -211,4 +211,76 @@ describe("MessageRepositoryImpl", () => {
     const chain = await repo.findMessageChain(conv1.id, tail.id, "user-1");
     expect(chain.map((m) => m.content)).toEqual(["tail"]);
   });
+
+  describe("removeAssetId", () => {
+    it("should remove the specified assetId from the message", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const repo2 = ds.getRepository("Message");
+      const msg = await repo2.save({
+        conversationId: conv1.id,
+        userId: "user-1",
+        role: "assistant",
+        content: "response",
+        status: "complete",
+        assetIds: ["asset-1", "asset-2", "asset-3"],
+      });
+
+      await repo.removeAssetId(msg.id, "asset-2", "user-1");
+
+      const updated = await repo.findById(msg.id, "user-1");
+      expect(updated!.assetIds).toEqual(["asset-1", "asset-3"]);
+    });
+
+    it("should preserve original array when assetId is not found", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const repo2 = ds.getRepository("Message");
+      const msg = await repo2.save({
+        conversationId: conv1.id,
+        userId: "user-1",
+        role: "assistant",
+        content: "response",
+        status: "complete",
+        assetIds: ["asset-1", "asset-2"],
+      });
+
+      await repo.removeAssetId(msg.id, "asset-999", "user-1");
+
+      const updated = await repo.findById(msg.id, "user-1");
+      expect(updated!.assetIds).toEqual(["asset-1", "asset-2"]);
+    });
+
+    it("should enforce userId scoping", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const repo2 = ds.getRepository("Message");
+      const msg = await repo2.save({
+        conversationId: conv1.id,
+        userId: "user-1",
+        role: "assistant",
+        content: "response",
+        status: "complete",
+        assetIds: ["asset-1"],
+      });
+
+      await expect(
+        repo.removeAssetId(msg.id, "asset-1", "wrong-user"),
+      ).rejects.toThrow("Message not found");
+    });
+
+    it("should handle message with no assetIds gracefully", async () => {
+      const { conv1 } = await seedTestData(ds);
+      const repo2 = ds.getRepository("Message");
+      const msg = await repo2.save({
+        conversationId: conv1.id,
+        userId: "user-1",
+        role: "assistant",
+        content: "response",
+        status: "complete",
+      });
+
+      await repo.removeAssetId(msg.id, "asset-1", "user-1");
+
+      const updated = await repo.findById(msg.id, "user-1");
+      expect(updated!.assetIds).toEqual([]);
+    });
+  });
 });

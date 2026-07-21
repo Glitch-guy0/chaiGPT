@@ -202,3 +202,11 @@ export async function DELETE(
 ### Completion Notes List
 
 ### File List
+
+### Review Findings
+
+- [x] [Review][Patch] QdrantStore not wired in DELETE route — vector cleanup skipped. [src/app/api/assets/[id]/route.ts:26] — fixed
+- [x] [Review][Patch] DELETE /api/assets/[id] doesn't invalidate Redis cache — stale RAG context after deletion. [src/app/api/assets/[id]/route.ts:26-27] — fixed
+- [x] [Review][Patch] deleteByAssetId iterates ALL collections blindly — leaks collection info, O(n) latency. [src/lib/vector/qdrant.ts:98-116] — fixed (logging added, top-level error re-thrown)
+- [x] [Review][Patch] deleteByAssetId swallows ALL errors silently — no diagnostic trail. [src/lib/vector/qdrant.ts:109-115] — fixed (logging + re-throw at top level)
+- [x] [Review][Defer] Missing asset preservation regression test — spec requires explicit test. [N/A]

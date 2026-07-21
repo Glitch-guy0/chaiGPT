@@ -9,6 +9,9 @@ export class MockRedisCache implements RedisCache {
   async set(key: string, value: string, _ttl: number): Promise<void> {
     this.store.set(key, value);
   }
+  async del(key: string): Promise<void> {
+    this.store.delete(key);
+  }
   clear() {
     this.store.clear();
   }

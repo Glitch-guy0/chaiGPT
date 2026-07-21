@@ -186,3 +186,19 @@ so that the model can retrieve from it later.
 ### Completion Notes List
 
 ### File List
+
+### Review Findings
+
+- [x] [Review][Patch] QdrantStore not wired — `new AssetServiceImpl(assetRepo, undefined)` in route handlers. Embedding and vector deletion are silent no-ops. [src/app/api/assets/route.ts:124] — fixed
+- [x] [Review][Patch] No file size limit on upload — multi-GB payloads exhaust disk and memory. [src/app/api/assets/route.ts:87-93] — fixed
+- [x] [Review][Patch] MIME type from client not sniffed — `file.type` can be spoofed. [src/app/api/assets/route.ts:104] — fixed
+- [x] [Review][Patch] ensureCollection TOCTOU race — two concurrent requests both call createCollection. [src/lib/vector/qdrant.ts:118-128] — fixed
+- [x] [Review][Patch] ingest leak window — vectors exist in Qdrant if process crashes before assetRepo.save. [src/services/asset.service.impl.ts:53-67] — fixed (assetRepo.save moved inside try/finally with cleanup)
+- [x] [Review][Patch] ensureCollection no retry on createCollection failure — thundering herd on every subsequent request. [src/lib/vector/qdrant.ts:123-125] — fixed
+- [x] [Review][Patch] Embedding calls parallel with no concurrency limit — large PDFs hit OpenAI rate limits. [src/lib/vector/qdrant.ts:74-90] — fixed (MAX_CONCURRENT_EMBED=10)
+- [x] [Review][Patch] removeAssetFromMessage non-atomic two-step delete — process crash between DB write and asset delete orphans vectors. [src/services/message.service.ts:111-119] — fixed (assetService.remove wrapped in try/catch with logging)
+- [x] [Review][Patch] removeAssetFromMessage doesn't verify assetId is in message's assetIds — may call remove on unrelated assets. [src/services/message.service.ts:115-118] — fixed
+- [x] [Review][Patch] ingest throws generic Error for unsupported MIME — returns 500 instead of 400. [src/services/asset.service.impl.ts:25] — fixed
+- [x] [Review][Defer] Redis connection without TLS — deployment config issue, not a code bug. [src/lib/cache/redis.ts:41]
+- [x] [Review][Defer] Path traversal in asset storage — paths are server-generated with randomUUID, not user input. [src/services/asset.service.impl.ts:30]
+- [x] [Review][Defer] No rate limiting on asset upload — needs API gateway/rate limiter layer, not application code. [src/app/api/assets/route.ts:79]

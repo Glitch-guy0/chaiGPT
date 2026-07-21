@@ -139,3 +139,11 @@ interface Citation {
 
 ### File List
 (To be filled by dev agent)
+
+### Review Findings
+
+- [x] [Review][Patch] regenerate() missing RAG injection — returns ungrounded response. [src/services/chat.service.ts:257-279] — fixed
+- [x] [Review][Patch] QdrantStore not wired in chat route — `undefined` passed as qdrantStore. [src/app/api/chat/route.ts:54] — fixed
+- [x] [Review][Patch] Duplicate Citation type in inject.ts and types/index.ts — will drift. [src/lib/rag/inject.ts:6-11, src/types/index.ts] — fixed (inject.ts re-exports from types)
+- [x] [Review][Defer] Branch-awareness not verified in RAG search — uses parsed.conversationId directly without branch resolution. [src/services/chat.service.ts:100-101]
+- [x] [Review][Defer] RAG context marker injection — crafted asset content could manipulate LLM context boundaries. [src/lib/rag/inject.ts:21]

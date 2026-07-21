@@ -188,3 +188,12 @@ so that I can prune attachments when correcting a message.
 ### Completion Notes List
 
 ### File List
+
+### Review Findings
+
+- [x] [Review][Patch] QdrantStore not wired in message-asset route — vector cleanup skipped on asset removal from message. [src/app/api/conversations/[id]/messages/[messageId]/assets/[assetId]/route.ts:46] — fixed
+- [x] [Review][Patch] handleRemoveAsset stale closure race — rapid successive removals corrupt optimistic state. [src/components/chat/chat-window.tsx:58-85] — fixed (per-message rollback instead of full snapshot)
+- [x] [Review][Patch] useAssetMetadata doesn't handle auth failures — silently shows raw UUIDs on session expiry. [src/hooks/use-asset-metadata.ts:21] — fixed (credentials: "include" + encodeURIComponent)
+- [x] [Review][Defer] Missing concurrent collection handling test — no test for ensureCollection race behavior. [N/A]
+- [x] [Review][Defer] useAssetMetadata has zero test coverage — needs MSW-based test. [N/A]
+- [x] [Review][Defer] Cache tests don't verify TTL expiry — MockRedisCache ignores TTL. [N/A]

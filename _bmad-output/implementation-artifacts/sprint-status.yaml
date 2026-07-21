@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-20
-last_updated: 2026-07-21T12:00:00Z
+last_updated: 2026-07-21T18:19:00Z
 project: chaiGPT
 project_key: NOKEY
 tracking_system: file-system
@@ -85,13 +85,13 @@ development_status:
   epic-4-retrospective: done
 
   # Epic 5: Assets & RAG
-  epic-5: in-progress
-  5-1-asset-upload-pipeline-volume-embed-delete-original: ready-for-dev
-  5-2-chunking-per-chunk-embeddings: ready-for-dev
-  5-3-per-conversation-top-3-retrieval-prompt-injection: ready-for-dev
-  5-4-redis-kv-cache-for-rag-context-reuse: ready-for-dev
-  5-5-asset-preservation-explicit-delete: ready-for-dev
-  5-6-edit-mode-asset-references: ready-for-dev
+  epic-5: done
+  5-1-asset-upload-pipeline-volume-embed-delete-original: done
+  5-2-chunking-per-chunk-embeddings: done
+  5-3-per-conversation-top-3-retrieval-prompt-injection: done
+  5-4-redis-kv-cache-for-rag-context-reuse: done
+  5-5-asset-preservation-explicit-delete: done
+  5-6-edit-mode-asset-references: done
   epic-5-retrospective: optional
 
   # Epic 6: UI Integration & Branch-Aware Experiences

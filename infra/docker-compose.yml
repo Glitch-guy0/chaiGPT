@@ -34,6 +34,16 @@ services:
     networks:
       - chaigpt_net
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      <<: *healthcheck-defaults
+    networks:
+      - chaigpt_net
+
   app:
     build:
       context: ..
@@ -45,6 +55,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - chaigpt_assets:/app/assets
     env_file:
@@ -52,6 +64,7 @@ services:
     environment:
       - DATABASE_URL=postgres://chaigpt:chaigpt@db:5432/chaigpt
       - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
     profiles:
       - prod
     networks:

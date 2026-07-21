@@ -29,6 +29,7 @@ function createMockMessageRepo() {
     save: vi.fn(),
     updateStatus: vi.fn(),
     tryStartRegenerate: vi.fn(),
+    removeAssetId: vi.fn(),
   } satisfies MessageRepository;
 }
 

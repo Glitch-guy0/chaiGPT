@@ -1,14 +1,18 @@
 "use client"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AssetReferences } from "@/components/chat/asset-references"
 import type { Message } from "@/types/chat"
 
 interface MessageBubbleProps {
   message: Message
+  isEditing?: boolean
+  onRemoveAsset?: (assetId: string) => void
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, isEditing = false, onRemoveAsset }: MessageBubbleProps) {
   const isUser = message.role === "user"
+  const hasAssets = !isUser && message.assetIds && message.assetIds.length > 0
 
   return (
     <div
@@ -30,6 +34,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
           {message.content}
         </p>
+        {hasAssets && (
+          <AssetReferences
+            assetIds={message.assetIds!}
+            removable={isEditing}
+            onRemove={onRemoveAsset}
+          />
+        )}
       </div>
     </div>
   )
