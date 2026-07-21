@@ -92,10 +92,10 @@ development_status:
   5-4-redis-kv-cache-for-rag-context-reuse: done
   5-5-asset-preservation-explicit-delete: done
   5-6-edit-mode-asset-references: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   # Epic 6: UI Integration & Branch-Aware Experiences
-  epic-6: in-progress
+  epic-6: done
   6-1-clerk-gated-chat-ui-shell: done
   6-2-branch-aware-sidebar: done
   6-3-live-streaming-markdown-rendering: done
@@ -205,3 +205,26 @@ action_items:
     status: open
     deadline: "Before Epic 5 Story 5.1"
     category: "Process"
+
+  # Epic 5 Retrospective Action Items (2026-07-22)
+  - epic: 5
+    action: "Implement explicit Redis cache invalidation on AssetService.remove()"
+    owner: "Charlie (Senior Dev)"
+    status: open
+    deadline: "Before Epic 6 completion"
+    category: "Technical"
+
+  - epic: 5
+    action: "Extend MockQdrantStore fixture to support multi-vector distance calculations"
+    owner: "Dana (QA Engineer)"
+    status: open
+    deadline: "Before Epic 7 integration tests"
+    category: "Testing"
+
+  - epic: 5
+    action: "Add stream chunking limit guardrails to prevent memory spikes on files > 10MB during PDF parsing"
+    owner: "Amelia (Developer)"
+    status: open
+    deadline: "Before Epic 6"
+    category: "Process / Performance"
+
