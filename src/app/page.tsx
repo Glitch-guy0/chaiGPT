@@ -1,14 +1,18 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { SignInButton, useAuth } from "@clerk/nextjs"
 import { Sidebar } from "@/components/chat/sidebar"
 import { ChatWindow } from "@/components/chat/chat-window"
-import { useChat } from "@/hooks/use-chat"
+import { useChat, useStreamingChat } from "@/hooks/use-chat"
+import { useEditMessage } from "@/hooks/use-edit-message"
+import { useRegenerateMessage } from "@/hooks/use-regenerate-message"
 import { Button } from "@/components/ui/button"
-import { RotateCcw, Loader2 } from "lucide-react"
-import type { Message, Conversation } from "@/types/chat"
+import { RotateCcw } from "lucide-react"
+import { toast } from "sonner"
+import type { Message, Conversation, MessageStatus } from "@/types/chat"
+import type { Citation } from "@/types"
 
 function LoadingSkeleton() {
   return (
@@ -95,17 +99,104 @@ export default function Home() {
   const { isLoaded, isSignedIn } = useAuth()
   const queryClient = useQueryClient()
   const chatMutation = useChat()
+  const { streamState, startStream, stopStream, resetStream } = useStreamingChat()
+  const editMutation = useEditMessage()
+  const { state: regenerateState, regenerate: runRegenerate, reset: resetRegenerate } = useRegenerateMessage()
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [error, setError] = useState<string | null>(null)
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const streamingMsgIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const { content, isStreaming, status, citations, assistantMessageId } = streamState
+
+    if (!assistantMessageId && !isStreaming) return
+
+    if (assistantMessageId && !isStreaming && (status === "complete" || status === "stopped")) {
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === assistantMessageId)
+        if (idx < 0) return prev
+        const updated = [...prev]
+        updated[idx] = { ...updated[idx], content, status, citations: citations as Citation[] | undefined }
+        return updated
+      })
+
+      if (streamState.conversationId) {
+        setConversation((prev: Conversation | null) =>
+          prev && prev.id === streamState.conversationId
+            ? prev
+            : {
+                id: streamState.conversationId!,
+                title: "New Chat",
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }
+        )
+      }
+
+      streamingMsgIdRef.current = null
+      return
+    }
+
+    if (!isStreaming) return
+
+    if (assistantMessageId) {
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === assistantMessageId)
+        if (idx < 0) return prev
+        const updated = [...prev]
+        updated[idx] = { ...updated[idx], content }
+        return updated
+      })
+    }
+  }, [streamState])
+
+  useEffect(() => {
+    if (!regeneratingMessageId) return
+    if (regenerateState.isStreaming) {
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === regeneratingMessageId)
+        if (idx < 0) return prev
+        const updated = [...prev]
+        updated[idx] = { ...updated[idx], content: regenerateState.content, status: regenerateState.status }
+        return updated
+      })
+    } else if (!regenerateState.isStreaming && (regenerateState.status === "complete" || regenerateState.status === "stopped")) {
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === regeneratingMessageId)
+        if (idx < 0) return prev
+        const updated = [...prev]
+        updated[idx] = {
+          ...updated[idx],
+          content: regenerateState.content,
+          status: regenerateState.status,
+        }
+        return updated
+      })
+      setRegeneratingMessageId(null)
+    }
+  }, [regenerateState, regeneratingMessageId])
+
+  useEffect(() => {
+    if (conversation?.id) {
+      setEditingMessageId(null)
+      setRegeneratingMessageId(null)
+    }
+  }, [conversation?.id])
 
   const handleNewChat = useCallback(() => {
+    resetStream()
+    resetRegenerate()
     setConversation(null)
     setMessages([])
     setError(null)
-  }, [])
+    setEditingMessageId(null)
+    setRegeneratingMessageId(null)
+  }, [resetStream, resetRegenerate])
 
   const handleSelectConversation = useCallback(async (id: string) => {
     abortRef.current?.abort()
@@ -131,7 +222,7 @@ export default function Home() {
 
   const handleSend = useCallback(
     async (content: string) => {
-      if (messagesLoading) return
+      if (messagesLoading || streamState.isStreaming || regeneratingMessageId) return
 
       const currentConvId = conversation?.id
       const userMessage: Message = {
@@ -139,48 +230,28 @@ export default function Home() {
         conversationId: currentConvId || crypto.randomUUID(),
         role: "user",
         content,
+        status: "complete" as MessageStatus,
         createdAt: new Date(),
       }
 
-      setMessages((prev) => [...prev, userMessage])
+      const assistantId = crypto.randomUUID()
+      streamingMsgIdRef.current = assistantId
 
-      try {
-        const response = await chatMutation.mutateAsync({
-          messages: [...(currentConvId === conversation?.id ? messages : []), userMessage],
-          conversationId: currentConvId,
-        })
-
-        const assistantMessage: Message = {
-          id: response.id,
-          conversationId: response.conversationId,
-          role: "assistant",
-          content: response.content,
-          createdAt: new Date(),
-        }
-
-        setMessages((prev) => [...prev, assistantMessage])
-        setConversation((prev: Conversation | null) =>
-          prev && prev.id === response.conversationId
-            ? prev
-            : {
-                id: response.conversationId,
-                title: content.slice(0, 50),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              }
-        )
-      } catch {
-        const errorMessage: Message = {
-          id: crypto.randomUUID(),
-          conversationId: currentConvId || crypto.randomUUID(),
-          role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
-          createdAt: new Date(),
-        }
-        setMessages((prev) => [...prev, errorMessage])
+      const assistantMessage: Message = {
+        id: assistantId,
+        conversationId: currentConvId || crypto.randomUUID(),
+        role: "assistant",
+        content: "",
+        status: "processing" as MessageStatus,
+        createdAt: new Date(),
       }
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage])
+
+      const msgsForApi = currentConvId === conversation?.id ? messages : []
+      startStream([...msgsForApi, userMessage], currentConvId)
     },
-    [messages, conversation, chatMutation, messagesLoading]
+    [messages, conversation, startStream, messagesLoading, streamState.isStreaming, regeneratingMessageId],
   )
 
   const handleRetry = useCallback(() => {
@@ -189,6 +260,54 @@ export default function Home() {
     setError(null)
     queryClient.invalidateQueries({ queryKey: ["conversations"] })
   }, [queryClient])
+
+  const handleEditClick = useCallback((messageId: string) => {
+    setEditingMessageId(messageId)
+  }, [])
+
+  const handleEditCancel = useCallback(() => {
+    setEditingMessageId(null)
+  }, [])
+
+  const handleEditSave = useCallback(
+    async (messageId: string, content: string) => {
+      if (!conversation?.id) return
+
+      try {
+        const result = await editMutation.mutateAsync({
+          conversationId: conversation.id,
+          content,
+        })
+
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id === result.userMessage.id) {
+              return { ...m, content: result.userMessage.content }
+            }
+            if (m.id === result.assistantMessage.id) {
+              return { ...m, content: result.assistantMessage.content }
+            }
+            return m
+          }),
+        )
+
+        setEditingMessageId(null)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to edit message")
+      }
+    },
+    [conversation?.id, editMutation],
+  )
+
+  const handleRegenerate = useCallback(
+    (messageId: string) => {
+      setRegeneratingMessageId(messageId)
+      runRegenerate(messageId)
+    },
+    [runRegenerate],
+  )
+
+  const isStreaming = streamState.isStreaming
 
   if (!isLoaded) return <LoadingSkeleton />
 
@@ -202,6 +321,7 @@ export default function Home() {
     <div className="flex h-screen w-full">
       <Sidebar
         activeConversationId={conversation?.id ?? null}
+        rootConversationId={conversation?.rootConversationId ?? null}
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
       />
@@ -210,8 +330,15 @@ export default function Home() {
         <ChatWindow
           messages={messages}
           onSend={handleSend}
-          isLoading={chatMutation.isPending || messagesLoading}
+          isLoading={chatMutation.isPending || messagesLoading || isStreaming || regeneratingMessageId !== null}
           conversationId={conversation?.id}
+          streamingMessageId={streamingMsgIdRef.current}
+          editingMessageId={editingMessageId}
+          onEditClick={handleEditClick}
+          onEditCancel={handleEditCancel}
+          onSaveEdit={handleEditSave}
+          onRegenerate={handleRegenerate}
+          regeneratingMessageId={regeneratingMessageId}
         />
       </div>
     </div>

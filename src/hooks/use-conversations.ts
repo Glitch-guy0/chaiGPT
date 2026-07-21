@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMemo } from "react"
 import type { Conversation } from "@/types/chat"
 
 async function fetchConversations() {
@@ -19,13 +20,20 @@ async function createConversation(title: string) {
   return res.json() as Promise<Conversation>
 }
 
-export function useConversations() {
+export function useConversations(rootConversationId?: string | null) {
   const queryClient = useQueryClient()
 
-  const { data: conversations = [], isLoading } = useQuery({
+  const { data: allConversations = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: fetchConversations,
   })
+
+  const conversations = useMemo(() => {
+    if (!rootConversationId) return allConversations
+    return allConversations.filter(
+      (c) => c.rootConversationId === rootConversationId || c.id === rootConversationId
+    )
+  }, [allConversations, rootConversationId])
 
   const createMutation = useMutation({
     mutationFn: createConversation,

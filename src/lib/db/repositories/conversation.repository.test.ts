@@ -306,3 +306,43 @@ describe("ConversationRepositoryImpl branch (message copying)", () => {
     );
   });
 });
+
+describe("ConversationRepositoryImpl findSiblings", () => {
+  let ds: DataSource;
+  let repo: ConversationRepositoryImpl;
+
+  beforeEach(async () => {
+    ds = await createTestDataSource();
+    repo = new ConversationRepositoryImpl(ds);
+  });
+
+  afterEach(async () => {
+    await ds.destroy();
+  });
+
+  it("returns conversations with matching rootConversationId (branches only)", async () => {
+    const convRepo = ds.getRepository("Conversation");
+    const root = await convRepo.save({ userId: "user-1", title: "Root", model: "gpt-4" });
+    await convRepo.save({ userId: "user-1", title: "Branch A", rootConversationId: root.id, model: "gpt-4" });
+    await convRepo.save({ userId: "user-1", title: "Branch B", rootConversationId: root.id, model: "gpt-4" });
+    await convRepo.save({ userId: "user-2", title: "Other", rootConversationId: root.id, model: "gpt-4" });
+
+    const siblings = await repo.findSiblings(root.id, "user-1");
+    expect(siblings).toHaveLength(2);
+    expect(siblings.map((s) => s.title).sort()).toEqual(["Branch A", "Branch B"]);
+  });
+
+  it("orders siblings by updatedAt DESC", async () => {
+    const convRepo = ds.getRepository("Conversation");
+    const root = await convRepo.save({ userId: "user-1", title: "Root", model: "gpt-4" });
+    const older = await convRepo.save({ userId: "user-1", title: "Older", rootConversationId: root.id, model: "gpt-4" });
+    const newer = await convRepo.save({ userId: "user-1", title: "Newer", rootConversationId: root.id, model: "gpt-4" });
+
+    await convRepo.update(older.id, { updatedAt: new Date(Date.now() - 1000) });
+    await convRepo.update(newer.id, { updatedAt: new Date(Date.now() + 1000) });
+
+    const siblings = await repo.findSiblings(root.id, "user-1");
+    expect(siblings[0].id).toBe(newer.id);
+    expect(siblings[1].id).toBe(older.id);
+  });
+});

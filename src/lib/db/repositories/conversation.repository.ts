@@ -5,10 +5,11 @@ import { Message } from '../entities/message.entity';
 
 export interface ConversationRepository {
   findById(id: string, userId: string): Promise<Conversation | null>;
-  findAll(userId: string): Promise<Conversation[]>;
-  save(c: Partial<Conversation>): Promise<Conversation>;
-  branch(id: string, messageId: string, userId: string): Promise<Conversation>;
-}
+   findAll(userId: string): Promise<Conversation[]>;
+   findSiblings(rootConversationId: string, userId: string): Promise<Conversation[]>;
+   save(c: Partial<Conversation>): Promise<Conversation>;
+   branch(id: string, messageId: string, userId: string): Promise<Conversation>;
+ }
 
 export class ConversationRepositoryImpl implements ConversationRepository {
   private repo: Repository<Conversation>
@@ -21,9 +22,17 @@ export class ConversationRepositoryImpl implements ConversationRepository {
     return this.repo.findOne({ where: { id, userId } })
   }
 
-  async findAll(userId: string): Promise<Conversation[]> {
-    return this.repo.find({ where: { userId }, order: { updatedAt: 'DESC' }, take: 50 })
-  }
+async findAll(userId: string): Promise<Conversation[]> {
+     return this.repo.find({ where: { userId }, order: { updatedAt: 'DESC' }, take: 50 })
+   }
+
+   async findSiblings(rootConversationId: string, userId: string): Promise<Conversation[]> {
+     return this.repo.find({
+       where: { userId, rootConversationId },
+       order: { updatedAt: 'DESC' },
+       take: 50,
+     })
+   }
 
   async save(c: Partial<Conversation>): Promise<Conversation> {
     return this.repo.save(c)

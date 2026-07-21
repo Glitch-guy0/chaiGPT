@@ -40,3 +40,29 @@ export const BranchRequestSchema = z.object({
 
 export type BranchRequest = z.infer<typeof BranchRequestSchema>;
 export type WebSearchArgs = z.infer<typeof WebSearchArgsSchema>;
+
+export type MessageStatus = 'processing' | 'complete' | 'stopped';
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  role: Role;
+  content: string;
+  status: MessageStatus;
+  createdAt: Date;
+  updatedAt?: Date;
+  model?: string;
+  parentId?: string;
+  assetIds?: string[];
+  citations?: import("@/types").Citation[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+  rootConversationId?: string;
+  lastMessageId?: string;
+  model?: string;
+}

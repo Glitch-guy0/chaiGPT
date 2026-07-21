@@ -8,12 +8,13 @@ import { Plus, MessageSquare } from "lucide-react"
 
 interface SidebarProps {
   activeConversationId?: string | null
+  rootConversationId?: string | null
   onSelectConversation?: (id: string) => void
   onNewChat?: () => void
 }
 
-export function Sidebar({ activeConversationId, onSelectConversation, onNewChat }: SidebarProps) {
-  const { conversations, isLoading } = useConversations()
+export function Sidebar({ activeConversationId, rootConversationId, onSelectConversation, onNewChat }: SidebarProps) {
+  const { conversations, isLoading } = useConversations(rootConversationId)
 
   const handleNewChat = () => {
     onNewChat?.()

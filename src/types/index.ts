@@ -16,6 +16,8 @@ export interface Citation {
   assetId: string;
   score: number;
   snippet: string;
+  url?: string;
+  title?: string;
 }
 
 export interface ChatResponse {
