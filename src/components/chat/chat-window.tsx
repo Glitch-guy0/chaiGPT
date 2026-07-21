@@ -87,7 +87,7 @@ export function ChatWindow({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background">
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" data-chat>
         <div className="max-w-3xl mx-auto">
           {localMessages.length === 0 ? (
             <div className="flex h-full items-center justify-center py-32">
