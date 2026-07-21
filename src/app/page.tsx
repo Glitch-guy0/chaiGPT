@@ -92,7 +92,10 @@ async function fetchConversationMessages(conversationId: string, signal?: AbortS
     const body = await res.json().catch(() => ({}))
     throw new Error((body as { error?: string }).error || `Request failed (${res.status})`)
   }
-  return res.json()
+  const data = await res.json()
+  const messages = data.messages ?? []
+  const { messages: _, ...conv } = data
+  return { conversation: conv, messages }
 }
 
 export default function Home() {
