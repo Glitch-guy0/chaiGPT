@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# chaiGPT
 
-## Getting Started
+AI Chat application powered by Next.js, TypeORM, PostgreSQL, Qdrant Vector DB, Redis, and LangChain.
 
-First, run the development server:
+---
+
+## 🚀 Getting Started
+
+Follow these steps to pull the latest changes and run the application locally:
+
+### 1. Pull the Latest Code
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git pull
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install Dependencies
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Configure Environment Variables
 
-## Learn More
+Copy the example environment file:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cp .env.example .env
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Ensure your `.env` has valid values for: (I have all the defaults setup just run development build)
+- `CLERK_SECRET_KEY` & `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (Clerk Auth)
+- `OPENAI_API_KEY` (LLM completions)
+- `DATABASE_URL` / PostgreSQL connection parameters
+- `QDRANT_URL` (Vector Search, optional)
+- `JINA_API_KEY` (Web Search, optional)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🛠 Running the Application
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Start Development Server & Infrastructure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To start both background services (Postgres, Qdrant, Redis via Docker) and the Next.js dev server:
+
+```bash
+npm run start:dev
+```
+
+Or start the infrastructure and dev server separately:
+
+```bash
+# 1. Start Docker services (Postgres, Qdrant, Redis)
+npm run start:dev:infra
+
+# 2. Start Next.js Development Server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 🧪 Testing
+
+```bash
+# Unit & Integration Tests
+npm test
+
+# E2E Tests (Playwright)
+npm run test:e2e
+```
