@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Pencil, RotateCcw, Loader2 } from "lucide-react"
+import { Pencil, RotateCcw, Loader2, GitFork } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { MessageStatus, Role } from "@/types/chat"
 
@@ -12,6 +12,7 @@ interface MessageControlsProps {
   isLatestUser: boolean
   onEdit: (messageId: string) => void
   onRegenerate: (messageId: string) => void
+  onBranch?: (messageId: string) => void
   isLoading?: boolean
 }
 
@@ -22,6 +23,7 @@ export function MessageControls({
   isLatestUser,
   onEdit,
   onRegenerate,
+  onBranch,
   isLoading,
 }: MessageControlsProps) {
   const isUser = role === "user"
@@ -70,6 +72,18 @@ export function MessageControls({
           aria-label="Regenerate response"
         >
           <RotateCcw className="h-3 w-3" />
+        </Button>
+      )}
+      {onBranch && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => onBranch(messageId)}
+          aria-label="Branch conversation"
+          title="Branch conversation from here"
+        >
+          <GitFork className="h-3 w-3" />
         </Button>
       )}
     </div>

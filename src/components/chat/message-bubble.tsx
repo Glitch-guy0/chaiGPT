@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   isLatestUser?: boolean
   onEdit?: (messageId: string) => void
   onRegenerate?: (messageId: string) => void
+  onBranch?: (messageId: string) => void
   isRegenerating?: boolean
   isEditMode?: boolean
   editContent?: string
@@ -32,6 +33,7 @@ export function MessageBubble({
   isLatestUser = false,
   onEdit,
   onRegenerate,
+  onBranch,
   isRegenerating = false,
   isEditMode = false,
   editContent,
@@ -92,6 +94,7 @@ export function MessageBubble({
               isLatestUser={isLatestUser}
               onEdit={onEdit}
               onRegenerate={onRegenerate}
+              onBranch={onBranch}
               isLoading={isRegenerating}
             />
           </div>

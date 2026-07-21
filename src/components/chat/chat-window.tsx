@@ -17,6 +17,7 @@ interface ChatWindowProps {
   streamingMessageId?: string | null
   onSaveEdit?: (messageId: string, content: string) => void
   onRegenerate?: (messageId: string) => void
+  onBranch?: (messageId: string) => void
   regeneratingMessageId?: string | null
   onEditClick?: (messageId: string) => void
   onEditCancel?: () => void
@@ -33,6 +34,7 @@ export function ChatWindow({
   streamingMessageId,
   onSaveEdit,
   onRegenerate,
+  onBranch,
   regeneratingMessageId,
   onEditClick,
   onEditCancel,
@@ -127,9 +129,9 @@ export function ChatWindow({
       <div className="flex-1 overflow-y-auto" data-chat>
         <div className="max-w-3xl mx-auto">
           {localMessages.length === 0 ? (
-            <div className="flex h-full items-center justify-center py-32">
-              <p className="text-muted-foreground text-sm">
-                Start a conversation
+            <div className="flex h-[calc(100vh-140px)] items-center justify-center">
+              <p className="text-muted-foreground text-sm font-medium">
+                Send a message to start
               </p>
             </div>
           ) : (
@@ -171,6 +173,7 @@ export function ChatWindow({
                     isLatestUser={isLatestUserMessage}
                     onEdit={handleEditClick}
                     onRegenerate={onRegenerate}
+                    onBranch={onBranch}
                     isRegenerating={isRegenerating}
                     isEditMode={isEditModeActive}
                     onSaveEdit={handleSaveEdit}

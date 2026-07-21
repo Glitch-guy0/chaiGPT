@@ -61,14 +61,6 @@ export class ConversationServiceImpl implements ConversationService {
       throw new NotFoundError('Message not found')
     }
 
-    if (message.role !== 'assistant') {
-      throw new Error('Can only branch from assistant messages')
-    }
-
-    if (!message.parentId) {
-      throw new Error('Message has no parentId — cannot branch from root message')
-    }
-
     return this.repo.branch(id, messageId, userId)
   }
 }

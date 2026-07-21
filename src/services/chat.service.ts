@@ -68,7 +68,7 @@ export class ChatServiceImpl implements ChatService {
       }
     }
 
-    await this.messageRepo.save({
+    const userMessage = await this.messageRepo.save({
       conversationId: conversation.id,
       userId,
       role: 'user',
@@ -84,6 +84,7 @@ export class ChatServiceImpl implements ChatService {
       content: '',
       status: 'processing' as MessageStatus,
       model: parsed.model,
+      parentId: userMessage.id,
     });
 
     const history = await this.messageRepo.findByConversation(conversation.id, userId);

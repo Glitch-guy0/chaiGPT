@@ -114,11 +114,14 @@ export default function Home() {
   useEffect(() => {
     const { content, isStreaming, status, citations, assistantMessageId } = streamState
 
-    if (!assistantMessageId && !isStreaming) return
+    const targetId = assistantMessageId || streamingMsgIdRef.current
+    if (!targetId && !isStreaming) return
 
-    if (assistantMessageId && !isStreaming && (status === "complete" || status === "stopped")) {
+    if (!isStreaming && (status === "complete" || status === "stopped")) {
       setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === assistantMessageId)
+        const idToUpdate = assistantMessageId || streamingMsgIdRef.current
+        if (!idToUpdate) return prev
+        const idx = prev.findIndex((m) => m.id === idToUpdate)
         if (idx < 0) return prev
         const updated = [...prev]
         updated[idx] = { ...updated[idx], content, status, citations: citations as Citation[] | undefined }
@@ -142,11 +145,9 @@ export default function Home() {
       return
     }
 
-    if (!isStreaming) return
-
-    if (assistantMessageId) {
+    if (isStreaming && streamingMsgIdRef.current) {
       setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === assistantMessageId)
+        const idx = prev.findIndex((m) => m.id === streamingMsgIdRef.current)
         if (idx < 0) return prev
         const updated = [...prev]
         updated[idx] = { ...updated[idx], content }
@@ -307,6 +308,31 @@ export default function Home() {
     [runRegenerate],
   )
 
+  const handleBranch = useCallback(
+    async (messageId: string) => {
+      const convId = conversation?.id || messages.find((m) => m.id === messageId)?.conversationId
+      if (!convId) return
+      try {
+        const res = await fetch(`/api/conversations/${convId}/branch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.error || "Failed to branch conversation")
+        }
+        const branchedConv: Conversation = await res.json()
+        queryClient.invalidateQueries({ queryKey: ["conversations"] })
+        await handleSelectConversation(branchedConv.id)
+        toast.success("Created new conversation branch!")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to branch conversation")
+      }
+    },
+    [conversation?.id, messages, queryClient, handleSelectConversation],
+  )
+
   const isStreaming = streamState.isStreaming
 
   if (!isLoaded) return <LoadingSkeleton />
@@ -338,6 +364,7 @@ export default function Home() {
           onEditCancel={handleEditCancel}
           onSaveEdit={handleEditSave}
           onRegenerate={handleRegenerate}
+          onBranch={handleBranch}
           regeneratingMessageId={regeneratingMessageId}
         />
       </div>

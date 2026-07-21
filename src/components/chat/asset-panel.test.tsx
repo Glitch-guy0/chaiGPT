@@ -222,14 +222,14 @@ describe("AssetPanel", () => {
     })
   })
 
-  it("shows empty state when conversationId is undefined", () => {
-    render(
+  it("returns null when conversationId is undefined", () => {
+    const { container } = render(
       <Wrapper>
         <AssetPanel conversationId={undefined} />
       </Wrapper>,
     )
 
-    expect(screen.getByText(/Send a message to start/i)).toBeTruthy()
+    expect(container.firstChild).toBeNull()
   })
 
   it("shows toggle with asset count after load", async () => {

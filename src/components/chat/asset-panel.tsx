@@ -84,11 +84,7 @@ export function AssetPanel({ conversationId, activeAssetIds }: AssetPanelProps) 
   }
 
   if (!conversationId) {
-    return (
-      <div className="border-t border-border px-4 py-3">
-        <p className="text-xs text-muted-foreground">Send a message to start</p>
-      </div>
-    )
+    return null
   }
 
   const assetCount = assets?.length ?? 0

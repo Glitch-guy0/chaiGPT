@@ -52,3 +52,6 @@ e2e/.auth/
 
 # user notes
 user-notes.md
+
+# clerk configuration (can include secrets)
+/.clerk/
